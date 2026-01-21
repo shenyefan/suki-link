@@ -1,13 +1,9 @@
 import { customAlphabet } from 'nanoid';
 
-/**
- * Alphabet used by Sink for short link generation
- */
 const ALPHABET = '23456789abcdefghjkmnpqrstuvwxyz';
 
 /**
  * Generate a random slug using official nanoid customAlphabet
- * Matching Sink-master's logic exactly.
  */
 export function generateSlug(length = 6) {
     const nanoid = customAlphabet(ALPHABET, length);
@@ -15,7 +11,7 @@ export function generateSlug(length = 6) {
 }
 
 /**
- * Normalize slug (lowercase by default in Sink-master)
+ * Normalize slug
  */
 export function normalizeSlug(slug) {
     return slug.toLowerCase();

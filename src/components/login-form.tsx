@@ -59,7 +59,7 @@ export function LoginForm({
               <div className="flex h-8 w-8 items-center justify-center rounded-md">
                 <GalleryVerticalEnd className="size-6" />
               </div>
-              <span className="sr-only">Sink</span>
+              <span className="sr-only">Suki Link</span>
             </div>
             <h1 className="text-xl font-bold">欢迎使用 Suki Link</h1>
             <div className="text-center text-sm text-muted-foreground">

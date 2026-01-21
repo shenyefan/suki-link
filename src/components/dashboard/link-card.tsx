@@ -81,7 +81,7 @@ export function LinkCard({ link, onDelete }: LinkCardProps) {
         }
     }
 
-    const linkIcon = `https://unavatar.io/${getHost(link.url)}?fallback=https://sink.cool/icon.png`
+    const linkIcon = `https://unavatar.io/${getHost(link.url)}?fallback=https://suki.icu/logo.svg`
 
     const copyToClipboard = () => {
         navigator.clipboard.writeText(shortLink)

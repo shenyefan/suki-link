@@ -3,8 +3,8 @@ import "./globals.css";
 import NextTopLoader from 'nextjs-toploader';
 
 export const metadata: Metadata = {
-  title: "EdgeOne Pages Next.js Starter - Hybrid Rendering Demo",
-  description: "Using Next.js to build high-performance, scalable Web applications on EdgeOne Pages. Demonstrating SSR, ISR, SSG, Node Functions, and Edge Functions.",
+  title: "Suki Link",
+  description: "一个基于 EO Pages + Next.js 的短链服务",
 };
 
 import { Toaster } from "@/components/ui/sonner";
@@ -17,7 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en-US" className="dark">
       <head>
-        <link rel="icon" href="/eo-logo-blue.svg" />
+        <link rel="icon" href="/logo.svg" />
       </head>
       <body className="bg-black text-white antialiased">
         <NextTopLoader

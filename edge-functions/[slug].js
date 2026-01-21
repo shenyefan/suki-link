@@ -73,9 +73,12 @@ export async function onRequest({ request, env }) {
     // 3. Define Reserved Paths and Patterns
     const reservedSlugs = [
         'dashboard',
+        'login',
+        'analytics',
         'expired',
         'api',
         '_next',
+        'logo.svg',
         'favicon.ico',
         'robots.txt',
         'sitemap.xml'

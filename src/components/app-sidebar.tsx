@@ -25,7 +25,7 @@ const data = {
   user: {
     name: "Admin",
     email: "shenyefan@suki.icu",
-    avatar: "/avatars/admin.jpg",
+    avatar: "/logo.svg",
   },
 }
 
