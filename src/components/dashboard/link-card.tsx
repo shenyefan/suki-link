@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner"
 import { LinkEditor } from "./link-editor"
 import { api } from "@/lib/api-client"
+import { QRCodeSVG } from "qrcode.react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -44,6 +45,13 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 
 interface LinkCardProps {
     link: {
@@ -63,6 +71,7 @@ interface LinkCardProps {
 export function LinkCard({ link, onDelete }: LinkCardProps) {
     const [copied, setCopied] = React.useState(false)
     const [isDeleting, setIsDeleting] = React.useState(false)
+    const [showQrCode, setShowQrCode] = React.useState(false)
 
     const formatDate = (val: number | string) => {
         if (typeof val === 'number') {
@@ -159,7 +168,12 @@ export function LinkCard({ link, onDelete }: LinkCardProps) {
                                 <ExternalLink className="h-4 w-4" />
                             </a>
 
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8"
+                                onClick={() => setShowQrCode(true)}
+                            >
                                 <QrCode className="h-4 w-4" />
                             </Button>
 
@@ -238,6 +252,45 @@ export function LinkCard({ link, onDelete }: LinkCardProps) {
                     </div>
                 </div>
             </CardContent>
+
+            <Dialog open={showQrCode} onOpenChange={setShowQrCode}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>短链二维码</DialogTitle>
+                        <DialogDescription>
+                            扫描二维码即可访问短链
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center gap-4 py-4">
+                        <div className="bg-white p-4 rounded-lg">
+                            <QRCodeSVG
+                                value={shortLink}
+                                size={256}
+                                level="H"
+                                includeMargin={false}
+                            />
+                        </div>
+                        <div className="text-center space-y-2">
+                            <p className="text-sm font-medium">{link.slug}</p>
+                            <p className="text-xs text-muted-foreground break-all">
+                                {shortLink}
+                            </p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(shortLink)
+                                    toast.success("链接已复制")
+                                }}
+                                className="mt-2"
+                            >
+                                <Copy className="mr-2 h-4 w-4" />
+                                复制链接
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </Card>
     )
 }
