@@ -6,7 +6,6 @@ import viteTsConfigPaths from 'vite-tsconfig-paths'
 import { fileURLToPath, URL } from 'url'
 
 import tailwindcss from '@tailwindcss/vite'
-import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
   resolve: {
@@ -16,13 +15,23 @@ const config = defineConfig({
   },
   plugins: [
     devtools(),
-    nitro(),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({
       projects: ['./tsconfig.json'],
     }),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      prerender: {
+        // 启用静态预渲染
+        enabled: true,
+        // 启用自动发现静态路由
+        autoStaticPathsDiscovery: true,
+        // 从 HTML 中提取链接并预渲染
+        crawlLinks: true,
+        // 页面输出为 /page/index.html 而不是 /page.html
+        autoSubfolderIndex: true,
+      },
+    }),
     viteReact(),
   ],
 })
