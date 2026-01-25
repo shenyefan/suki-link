@@ -267,11 +267,9 @@ export function LinkCard({ link, onDelete }: LinkCardProps) {
                                 value={shortLink}
                                 size={256}
                                 level="H"
-                                includeMargin={false}
                             />
                         </div>
                         <div className="text-center space-y-2">
-                            <p className="text-sm font-medium">{link.slug}</p>
                             <p className="text-xs text-muted-foreground break-all">
                                 {shortLink}
                             </p>

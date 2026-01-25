@@ -1,7 +1,5 @@
-"use client"
-
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useNavigate } from "@tanstack/react-router"
 import { GalleryVerticalEnd } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -18,7 +16,7 @@ export function LoginForm({
   const [token, setToken] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
+  const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,7 +33,7 @@ export function LoginForm({
       const response = await api.get<{ name: string; url: string }>('/api/verify')
 
       if (response.code === 200) {
-        router.push("/dashboard")
+        navigate({ to: '/dashboard' })
       } else {
         // 验证失败，清除 token
         clearAuthToken()

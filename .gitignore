@@ -23,6 +23,16 @@
 # misc
 .DS_Store
 *.pem
+dist
+dist-ssr
+*.local
+count.txt
+.nitro
+.tanstack
+.wrangler
+.output
+.vinxi
+todos.json
 
 # debug
 npm-debug.log*

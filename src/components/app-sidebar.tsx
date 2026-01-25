@@ -1,7 +1,5 @@
-"use client"
-
 import * as React from "react"
-import { usePathname } from "next/navigation"
+import { useLocation } from "@tanstack/react-router"
 import {
   Command,
   Link,
@@ -30,7 +28,8 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const pathname = usePathname()
+  const location = useLocation()
+  const pathname = location.pathname
 
   const navMain = [
     {
