@@ -1,6 +1,6 @@
 {
   "name": "suki-link",
-  "buildCommand": "vite build",
+  "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
   "outputDirectory": "./dist/client"
 }
