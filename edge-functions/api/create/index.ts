@@ -1,4 +1,4 @@
-import { generateSlug, formatResponse, authenticate, buildShortLink, normalizeSlug, EdgeOneContext, LinkData } from '../utils.js';
+import { generateSlug, formatResponse, authenticate, buildShortLink, normalizeSlug, EdgeOneContext, LinkData } from '../utils/common.js';
 
 /**
  * 创建链接请求体接口

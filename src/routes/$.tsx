@@ -28,6 +28,9 @@ function RedirectHandler() {
     const normalizedSlug = firstSegment.toLowerCase()
     const apiUrl = new URL('/api/redirect', window.location.origin)
     apiUrl.searchParams.set('slug', normalizedSlug)
+    // 传递用户时区字符串
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC'
+    apiUrl.searchParams.set('timezone', timezone)
 
     // 保存原始查询参数，用于前端拼接
     const originalQuery = window.location.search

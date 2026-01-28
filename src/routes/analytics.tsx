@@ -84,6 +84,9 @@ function AnalyticsPage() {
       if (date) {
         url.searchParams.set('date', date)
       }
+      // 传递用户时区字符串
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC'
+      url.searchParams.set('timezone', timezone)
 
       const body = await api.get<AnalyticsData>(url.toString())
 

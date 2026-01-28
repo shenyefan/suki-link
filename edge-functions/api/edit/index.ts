@@ -1,4 +1,4 @@
-import { formatResponse, authenticate, normalizeSlug, EdgeOneContext, LinkData } from '../utils.js';
+import { formatResponse, authenticate, normalizeSlug, EdgeOneContext, LinkData } from '../utils/common.js';
 
 /**
  * 编辑链接请求体接口

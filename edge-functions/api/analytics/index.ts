@@ -1,17 +1,4 @@
-import { formatResponse, authenticate, EdgeOneContext } from '../utils.js';
-
-/**
- * 获取日期字符串（YYYY-MM-DD 格式）
- * @param date - 指定的日期，如果不提供则使用当前日期
- * @returns 格式化的日期字符串
- */
-function getDateString(date?: Date): string {
-  const d = date || new Date();
-  const year = d.getUTCFullYear();
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { formatResponse, authenticate, EdgeOneContext, getDateString, getDateDaysAgo, getTimezoneFromRequest } from '../utils/common.js';
 
 /**
  * 每日统计数据接口
@@ -60,14 +47,19 @@ export async function onRequest(context: EdgeOneContext): Promise<Response> {
   try {
     const url = new URL(request.url);
     const date = url.searchParams.get('date'); // 可选：指定日期用于排名
+    const timezone = getTimezoneFromRequest(request);
 
     // 生成最近 30 天的日期列表
     const today = new Date();
     const dates: string[] = [];
+    
+    // 从今天开始，向前推30天
     for (let i = 29; i >= 0; i--) {
-      const d = new Date(today);
-      d.setUTCDate(d.getUTCDate() - i);
-      dates.push(getDateString(d));
+      const d = new Date(today.getTime());
+      // 减去i天，得到正确的日期
+      d.setDate(d.getDate() - i);
+      // 通过 getDateString 函数处理时区
+      dates.push(getDateString(d, timezone));
     }
 
     // 从 daily_all 获取最近 30 天的每日总数

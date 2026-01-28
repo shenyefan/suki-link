@@ -1,4 +1,5 @@
 import { customAlphabet } from 'nanoid';
+import * as dateUtils from './date.js';
 
 const ALPHABET = '23456789abcdefghjkmnpqrstuvwxyz';
 
@@ -153,3 +154,10 @@ export function buildShortLink(request: Request, slug: string): string {
   const url = new URL(request.url);
   return `${url.protocol}//${url.host}/${slug}`;
 }
+
+// 导出日期工具函数
+export const {
+  getDateString,
+  getDateDaysAgo,
+  getTimezoneFromRequest
+} = dateUtils;

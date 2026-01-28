@@ -1,4 +1,4 @@
-import { formatResponse, authenticate, EdgeOneContext, LinkData } from '../utils.js';
+import { formatResponse, authenticate, EdgeOneContext, LinkData } from '../utils/common.js';
 
 /**
  * KV 命名空间列表选项接口

@@ -1,17 +1,4 @@
-import { formatResponse, normalizeSlug, EdgeOneContext } from '../utils.js';
-
-/**
- * 获取日期字符串（YYYY-MM-DD 格式）
- * @param date - 指定的日期，如果不提供则使用当前日期
- * @returns 格式化的日期字符串
- */
-function getDateString(date?: Date): string {
-  const d = date || new Date();
-  const year = d.getUTCFullYear();
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { formatResponse, normalizeSlug, EdgeOneContext, getDateString, getDateDaysAgo, getTimezoneFromRequest } from '../utils/common.js';
 
 /**
  * 记录访问统计信息
@@ -21,7 +8,10 @@ function getDateString(date?: Date): string {
  */
 async function recordAccess(slug: string, request: Request, waitUntil?: (promise: Promise<unknown>) => void): Promise<void> {
   try {
-    const dateStr = getDateString();
+    // 从请求中获取时区字符串
+    const timezone = getTimezoneFromRequest(request);
+    
+    const dateStr = getDateString(undefined, timezone);
 
     // 更新 daily_all - 存储最近 30 天的总点击量
     const dailyAllKey = 'daily_all';
@@ -31,9 +21,8 @@ async function recordAccess(slug: string, request: Request, waitUntil?: (promise
     dailyAll[dateStr] = (dailyAll[dateStr] || 0) + 1;
 
     // 清理超过 30 天的数据
-    const cutoffDate = new Date();
-    cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 30);
-    const cutoffDateStr = getDateString(cutoffDate);
+    const cutoffDate = getDateDaysAgo(30, undefined, timezone);
+    const cutoffDateStr = getDateString(cutoffDate, timezone);
 
     Object.keys(dailyAll).forEach((key) => {
       if (key < cutoffDateStr) {

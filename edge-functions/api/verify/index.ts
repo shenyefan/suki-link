@@ -1,4 +1,4 @@
-import { formatResponse, authenticate, EdgeOneContext } from '../utils.js';
+import { formatResponse, authenticate, EdgeOneContext } from '../utils/common.js';
 
 /**
  * 验证 API 响应数据接口
