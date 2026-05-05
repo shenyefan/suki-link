@@ -1,0 +1,258 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Suki-Link API",
+    "description": "短链接服务 API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "本地开发"
+    }
+  ],
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "tags": ["认证"],
+        "summary": "登录获取Token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["password"],
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "example": "12345678"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": { "type": "integer", "example": 200 },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": { "type": "string" }
+                      }
+                    },
+                    "message": { "type": "string", "example": "登录成功" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/verify": {
+      "post": {
+        "tags": ["认证"],
+        "summary": "验证Token",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "成功"
+          }
+        }
+      }
+    },
+    "/api/link/create": {
+      "post": {
+        "tags": ["短链管理"],
+        "summary": "创建短链",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["url"],
+                "properties": {
+                  "url": { "type": "string", "example": "https://example.com" },
+                  "slug": { "type": "string", "example": "my-link" },
+                  "comment": { "type": "string" },
+                  "expiration": { "type": "integer", "description": "过期时间戳(秒)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "创建成功" }
+        }
+      }
+    },
+    "/api/link/edit": {
+      "post": {
+        "tags": ["短链管理"],
+        "summary": "编辑短链",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["slug", "url"],
+                "properties": {
+                  "slug": { "type": "string", "example": "my-link" },
+                  "url": { "type": "string" },
+                  "comment": { "type": "string" },
+                  "expiration": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "更新成功" }
+        }
+      }
+    },
+    "/api/link/delete": {
+      "post": {
+        "tags": ["短链管理"],
+        "summary": "删除短链",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["slug"],
+                "properties": {
+                  "slug": { "type": "string", "example": "my-link" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "删除成功" }
+        }
+      }
+    },
+    "/api/link/query": {
+      "get": {
+        "tags": ["短链管理"],
+        "summary": "查询单个短链",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "成功" }
+        }
+      }
+    },
+    "/api/link/list": {
+      "post": {
+        "tags": ["短链管理"],
+        "summary": "短链列表",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "limit": { "type": "integer", "default": 20 },
+                  "cursor": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "成功" }
+        }
+      }
+    },
+    "/api/link/export": {
+      "post": {
+        "tags": ["短链管理"],
+        "summary": "导出所有短链",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cursor": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "成功" }
+        }
+      }
+    },
+    "/api/link/import": {
+      "post": {
+        "tags": ["短链管理"],
+        "summary": "批量导入短链",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["version", "links"],
+                "properties": {
+                  "version": { "type": "string", "example": "1.0" },
+                  "links": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["url"],
+                      "properties": {
+                        "url": { "type": "string" },
+                        "slug": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "导入完成" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
