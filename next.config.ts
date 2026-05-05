@@ -9,10 +9,6 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: pkgRoot,
   },
-  serverExternalPackages: [
-    'tencentcloud-sdk-nodejs-common',
-    'tencentcloud-sdk-nodejs-teo',
-  ],
 }
 
 export default nextConfig
