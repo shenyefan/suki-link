@@ -27,6 +27,8 @@
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.5.0",
+    "tencentcloud-sdk-nodejs-common": "^4.1.220",
+    "tencentcloud-sdk-nodejs-teo": "^4.1.218",
     "topojson-client": "^3.1.0",
     "ufo": "^1.6.3",
     "vaul": "^1.1.2",

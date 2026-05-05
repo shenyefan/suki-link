@@ -1,5 +1,18 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import type { NextConfig } from 'next'
 
-const nextConfig: NextConfig = {}
+const pkgRoot = path.dirname(fileURLToPath(import.meta.url))
+
+const nextConfig: NextConfig = {
+  turbopack: {
+    root: pkgRoot,
+  },
+  serverExternalPackages: [
+    'tencentcloud-sdk-nodejs-common',
+    'tencentcloud-sdk-nodejs-teo',
+  ],
+}
 
 export default nextConfig
