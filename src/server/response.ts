@@ -71,7 +71,18 @@ export async function parseJsonBody<T>(request: Request, schema: z.ZodType<T>): 
 }
 
 export function parseQuery<T>(request: Request, schema: z.ZodType<T>): T | Response {
-  const r = schema.safeParse(getSearchRecord(request))
+  const record = getSearchRecord(request) as Record<string, string | number>
+  // Coerce string numbers to actual numbers for common parameters
+  if (typeof record.limit === 'string')
+    record.limit = Number(record.limit)
+  if (typeof record.skip === 'string')
+    record.skip = Number(record.skip)
+  if (typeof record.offset === 'string')
+    record.offset = Number(record.offset)
+  if (typeof record.page === 'string')
+    record.page = Number(record.page)
+  
+  const r = schema.safeParse(record)
   if (!r.success)
     return fail(400, r.error.issues.map(e => e.message).join('; ') || '查询参数无效', 400)
   return r.data

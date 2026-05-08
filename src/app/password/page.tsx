@@ -26,10 +26,10 @@ function PasswordForm() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/link/verify-password', {
+      const res = await fetch(`/api/links/${encodeURIComponent(slug)}/verify-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, password, query }),
+        body: JSON.stringify({ password, query }),
       })
       const json = await res.json()
 

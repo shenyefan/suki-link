@@ -1,7 +1,7 @@
 import { requireAuth } from '@/server/auth'
 import { ok } from '@/server/response'
 
-export async function POST(request: Request): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
   const deny = await requireAuth(request)
   if (deny)
     return deny

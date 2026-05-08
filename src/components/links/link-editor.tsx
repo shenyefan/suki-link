@@ -56,7 +56,7 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
     
     if (isEdit && slug) {
       window.queueMicrotask(() => setLoading(true))
-      apiJson<Record<string, unknown>>(`/api/link/query?slug=${encodeURIComponent(slug)}`)
+      apiJson<Record<string, unknown>>(`/api/links/${encodeURIComponent(slug)}`)
         .then((data) => {
           setUrl(String(data.url ?? ''))
           setCustomSlug(String(data.slug ?? ''))
@@ -134,7 +134,6 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
       const body: Record<string, unknown> = { url: url.trim() }
       
       if (isEdit) {
-        body.originalSlug = slug
         body.slug = customSlug.trim() || slug
       } else if (customSlug.trim()) {
         body.slug = customSlug.trim()
@@ -147,9 +146,10 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
       if (cloaking) body.cloaking = true
       if (password) body.password = password
 
-      const endpoint = isEdit ? '/api/link/edit' : '/api/link/create'
+      const endpoint = isEdit ? `/api/links/${encodeURIComponent(slug)}` : '/api/links'
+      const method = isEdit ? 'PUT' : 'POST'
       await apiJson(endpoint, {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })

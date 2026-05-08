@@ -1,3 +1,7 @@
+import { headers } from 'next/headers'
+
+import { getSitePassword } from '@/server/env'
+
 export interface KvStore {
   get: (key: string, opts?: { type?: 'json'; cacheTtl?: number }) => Promise<unknown | null>
   getWithMetadata: (
@@ -96,10 +100,7 @@ interface NativeKv {
   }>
 }
 
-declare const Link: NativeKv | undefined
-declare const LINK_KV: NativeKv | undefined
-
-export type KvStoreMode = 'native' | 'memory' | 'test'
+export type KvStoreMode = 'native' | 'bridge' | 'memory' | 'test'
 
 function normalizeListResult(raw: Awaited<ReturnType<NativeKv['list']>>): {
   keys: Array<{ name: string }>
@@ -113,6 +114,82 @@ function normalizeListResult(raw: Awaited<ReturnType<NativeKv['list']>>): {
   }).filter(k => k.name.length > 0)
   const cursor = raw.cursor === null ? undefined : raw.cursor ?? undefined
   return { keys, list_complete, cursor }
+}
+
+async function getBridgeUrl(): Promise<string | null> {
+  try {
+    const h = await headers()
+    const host = h.get('x-forwarded-host') || h.get('host')
+    if (!host)
+      return null
+    const proto = h.get('x-forwarded-proto') || (host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https')
+    return `${proto}://${host}/api/_suki-kv`
+  }
+  catch {
+    return null
+  }
+}
+
+async function bridgeRequest<T = unknown>(action: string, payload: Record<string, unknown>): Promise<T> {
+  const token = getSitePassword()
+  const url = await getBridgeUrl()
+  if (!token || !url)
+    throw new Error('EdgeOne KV bridge is unavailable')
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-suki-kv-token': token,
+    },
+    body: JSON.stringify({ action, ...payload }),
+    cache: 'no-store',
+  })
+  const data = await res.json().catch(() => null) as { ok?: boolean; error?: string; data?: T } | null
+  if (!res.ok || !data?.ok)
+    throw new Error(data?.error || `EdgeOne KV bridge failed: ${res.status}`)
+  return data.data as T
+}
+
+class BridgeKv implements KvStore {
+  async get(key: string, opts?: { type?: 'json' }): Promise<unknown | null> {
+    const data = await bridgeRequest<{ value: string | null }>('get', { key })
+    if (data.value === null)
+      return null
+    if (opts?.type === 'json') {
+      try {
+        return JSON.parse(data.value) as unknown
+      }
+      catch {
+        return null
+      }
+    }
+    return data.value
+  }
+
+  async getWithMetadata(key: string, opts?: { type?: 'json' }): Promise<{
+    value: unknown | null
+    metadata: Record<string, unknown> | null
+  }> {
+    return { value: await this.get(key, opts), metadata: null }
+  }
+
+  async put(key: string, value: string): Promise<void> {
+    await bridgeRequest('put', { key, value })
+  }
+
+  async delete(key: string): Promise<void> {
+    await bridgeRequest('delete', { key })
+  }
+
+  async list(opts: { prefix: string; limit?: number; cursor?: string }): Promise<{
+    keys: Array<{ name: string }>
+    list_complete: boolean
+    cursor?: string
+  }> {
+    const data = await bridgeRequest<Awaited<ReturnType<NativeKv['list']>>>('list', opts)
+    return normalizeListResult(data)
+  }
 }
 
 function wrapNativeKv(kv: NativeKv): KvStore {
@@ -142,29 +219,41 @@ function wrapNativeKv(kv: NativeKv): KvStore {
 }
 
 const memorySingleton = new MemoryKv()
+const bridgeSingleton = new BridgeKv()
 const nativeBindingNames = ['Link', 'LINK_KV'] as const
+let lastBindingProbe: Record<string, boolean> = {}
 
-function directNativeKvBindings(): Record<string, NativeKv | undefined> {
-  return {
-    Link: typeof Link !== 'undefined' ? Link : undefined,
-    LINK_KV: typeof LINK_KV !== 'undefined' ? LINK_KV : undefined,
+function isNativeKv(value: unknown): value is NativeKv {
+  return Boolean(value && typeof value === 'object' && typeof (value as NativeKv).get === 'function')
+}
+
+function readRuntimeBinding(name: string): unknown {
+  const g = globalThis as unknown as Record<string, unknown>
+  if (isNativeKv(g[name]))
+    return g[name]
+
+  try {
+    return Function(
+      'name',
+      'try { return (0, eval)(name) } catch { return undefined }',
+    )(name) as unknown
+  }
+  catch {
+    return undefined
   }
 }
 
 function findNativeKv(): { name: string; kv: NativeKv } | null {
-  const direct = directNativeKvBindings()
+  const probe: Record<string, boolean> = {}
   for (const name of nativeBindingNames) {
-    const kv = direct[name]
-    if (kv && typeof kv.get === 'function')
+    const kv = readRuntimeBinding(name)
+    probe[name] = isNativeKv(kv)
+    if (isNativeKv(kv)) {
+      lastBindingProbe = probe
       return { name, kv }
+    }
   }
-
-  const g = globalThis as unknown as Record<string, unknown>
-  for (const name of nativeBindingNames) {
-    const kv = g[name]
-    if (kv && typeof kv === 'object' && typeof (kv as NativeKv).get === 'function')
-      return { name, kv: kv as NativeKv }
-  }
+  lastBindingProbe = probe
   return null
 }
 
@@ -183,12 +272,23 @@ export function getKvStore(): KvStore {
     g.__SUKI_KV_BINDING__ = native.name
     return g.__SUKI_KV__
   }
+  if (getSitePassword()) {
+    g.__SUKI_KV__ = bridgeSingleton
+    g.__SUKI_KV_MODE__ = 'bridge'
+    g.__SUKI_KV_BINDING__ = '_suki-kv'
+    return g.__SUKI_KV__
+  }
   g.__SUKI_KV_MODE__ = 'memory'
   g.__SUKI_KV_BINDING__ = undefined
   return memorySingleton
 }
 
-export function getKvStoreStatus(): { mode: KvStoreMode; binding?: string; expectedBindings: string[] } {
+export function getKvStoreStatus(): {
+  mode: KvStoreMode
+  binding?: string
+  expectedBindings: string[]
+  bindingProbe: Record<string, boolean>
+} {
   getKvStore()
   const g = globalThis as unknown as {
     __SUKI_KV_MODE__?: KvStoreMode
@@ -198,6 +298,7 @@ export function getKvStoreStatus(): { mode: KvStoreMode; binding?: string; expec
     mode: g.__SUKI_KV_MODE__ ?? 'memory',
     binding: g.__SUKI_KV_BINDING__,
     expectedBindings: [...nativeBindingNames],
+    bindingProbe: lastBindingProbe,
   }
 }
 

@@ -1,4 +1,3 @@
-/** Next.js：`process.env`；本地 / CI 可参考根目录 `.env`。 */
 function pickEnv(key: string): string {
   try {
     const p = typeof process !== 'undefined' ? process.env[key] : undefined

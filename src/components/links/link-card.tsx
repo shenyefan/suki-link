@@ -91,10 +91,8 @@ export function LinkCard({ link, onDelete, onEdit }: LinkCardProps) {
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      await apiJson('/api/link/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: link.slug }),
+      await apiJson(`/api/links/${encodeURIComponent(link.slug)}`, {
+        method: 'DELETE',
       })
       onDelete(link.slug)
       setShowDeleteDialog(false)

@@ -33,9 +33,10 @@ const navItems = [
 
 type SystemStatus = {
   kv: {
-    mode: 'native' | 'memory' | 'test'
+    mode: 'native' | 'bridge' | 'memory' | 'test'
     binding?: string
     expectedBindings: string[]
+    bindingProbe: Record<string, boolean>
   }
 }
 

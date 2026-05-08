@@ -57,8 +57,8 @@
         }
       }
     },
-    "/api/verify": {
-      "post": {
+    "/api/auth/verify": {
+      "get": {
         "tags": ["认证"],
         "summary": "验证Token",
         "security": [{ "BearerAuth": [] }],
@@ -69,7 +69,41 @@
         }
       }
     },
-    "/api/link/create": {
+    "/api/links": {
+      "get": {
+        "tags": ["短链管理"],
+        "summary": "短链列表",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 20 }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["newest", "oldest", "az", "za"],
+              "default": "newest"
+            }
+          }
+        ],
+        "responses": {
+          "200": { "description": "成功" }
+        }
+      },
       "post": {
         "tags": ["短链管理"],
         "summary": "创建短链",
@@ -96,18 +130,42 @@
         }
       }
     },
-    "/api/link/edit": {
-      "post": {
+    "/api/links/{slug}": {
+      "get": {
+        "tags": ["短链管理"],
+        "summary": "查询单个短链",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "成功" }
+        }
+      },
+      "put": {
         "tags": ["短链管理"],
         "summary": "编辑短链",
         "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["slug", "url"],
+                "required": ["url"],
                 "properties": {
                   "slug": { "type": "string", "example": "my-link" },
                   "url": { "type": "string" },
@@ -121,42 +179,33 @@
         "responses": {
           "200": { "description": "更新成功" }
         }
-      }
-    },
-    "/api/link/delete": {
-      "post": {
+      },
+      "delete": {
         "tags": ["短链管理"],
         "summary": "删除短链",
         "security": [{ "BearerAuth": [] }],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["slug"],
-                "properties": {
-                  "slug": { "type": "string", "example": "my-link" }
-                }
-              }
-            }
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
           }
-        },
+        ],
         "responses": {
           "200": { "description": "删除成功" }
         }
       }
     },
-    "/api/link/query": {
+    "/api/links/export": {
       "get": {
         "tags": ["短链管理"],
-        "summary": "查询单个短链",
+        "summary": "导出所有短链",
         "security": [{ "BearerAuth": [] }],
         "parameters": [
           {
-            "name": "slug",
+            "name": "cursor",
             "in": "query",
-            "required": true,
             "schema": { "type": "string" }
           }
         ],
@@ -165,52 +214,7 @@
         }
       }
     },
-    "/api/link/list": {
-      "post": {
-        "tags": ["短链管理"],
-        "summary": "短链列表",
-        "security": [{ "BearerAuth": [] }],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "limit": { "type": "integer", "default": 20 },
-                  "cursor": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      }
-    },
-    "/api/link/export": {
-      "post": {
-        "tags": ["短链管理"],
-        "summary": "导出所有短链",
-        "security": [{ "BearerAuth": [] }],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "cursor": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "成功" }
-        }
-      }
-    },
-    "/api/link/import": {
+    "/api/links/import": {
       "post": {
         "tags": ["短链管理"],
         "summary": "批量导入短链",
@@ -242,6 +246,40 @@
         },
         "responses": {
           "200": { "description": "导入完成" }
+        }
+      }
+    },
+    "/api/links/{slug}/verify-password": {
+      "post": {
+        "tags": ["短链管理"],
+        "summary": "验证短链访问密码",
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": { "type": "string" },
+                  "query": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "验证成功" },
+          "401": { "description": "密码错误" },
+          "404": { "description": "未找到短链" }
         }
       }
     }

@@ -60,14 +60,10 @@ export default function LinksManagePage() {
     }
     setError(null)
     try {
-      const body: Record<string, unknown> = { limit: 24, sort }
-      if (next) body.cursor = next
-      if (search.trim()) body.search = search.trim()
-      const data = await apiJson<ListPayload>('/api/link/list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
+      const params = new URLSearchParams({ limit: '24', sort })
+      if (next) params.set('cursor', next)
+      if (search.trim()) params.set('search', search.trim())
+      const data = await apiJson<ListPayload>(`/api/links?${params}`)
       const nextRows = data.links.filter((r): r is LinkData => r !== null)
       setRows(prev => (next ? [...prev, ...nextRows] : nextRows))
       setComplete(data.list_complete)

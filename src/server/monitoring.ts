@@ -1,7 +1,3 @@
-/**
- * TEo / 腾讯云 SDK（Node 内置 crypto）。
- * 仅应在 Route Handler 等服务端逻辑中通过 `await import('@/server/monitoring')` 引用。
- */
 import { CommonClient } from 'tencentcloud-sdk-nodejs-common'
 import { teo } from 'tencentcloud-sdk-nodejs-teo'
 
