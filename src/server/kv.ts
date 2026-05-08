@@ -96,6 +96,11 @@ interface NativeKv {
   }>
 }
 
+declare const Link: NativeKv | undefined
+declare const LINK_KV: NativeKv | undefined
+
+export type KvStoreMode = 'native' | 'memory' | 'test'
+
 function normalizeListResult(raw: Awaited<ReturnType<NativeKv['list']>>): {
   keys: Array<{ name: string }>
   list_complete: boolean
@@ -137,22 +142,67 @@ function wrapNativeKv(kv: NativeKv): KvStore {
 }
 
 const memorySingleton = new MemoryKv()
+const nativeBindingNames = ['Link', 'LINK_KV'] as const
+
+function directNativeKvBindings(): Record<string, NativeKv | undefined> {
+  return {
+    Link: typeof Link !== 'undefined' ? Link : undefined,
+    LINK_KV: typeof LINK_KV !== 'undefined' ? LINK_KV : undefined,
+  }
+}
+
+function findNativeKv(): { name: string; kv: NativeKv } | null {
+  const direct = directNativeKvBindings()
+  for (const name of nativeBindingNames) {
+    const kv = direct[name]
+    if (kv && typeof kv.get === 'function')
+      return { name, kv }
+  }
+
+  const g = globalThis as unknown as Record<string, unknown>
+  for (const name of nativeBindingNames) {
+    const kv = g[name]
+    if (kv && typeof kv === 'object' && typeof (kv as NativeKv).get === 'function')
+      return { name, kv: kv as NativeKv }
+  }
+  return null
+}
 
 export function getKvStore(): KvStore {
   const g = globalThis as unknown as {
     __SUKI_KV__?: KvStore
-    LINK_KV?: NativeKv
+    __SUKI_KV_MODE__?: KvStoreMode
+    __SUKI_KV_BINDING__?: string
   }
   if (g.__SUKI_KV__)
     return g.__SUKI_KV__
-  if (g.LINK_KV && typeof g.LINK_KV.get === 'function') {
-    g.__SUKI_KV__ = wrapNativeKv(g.LINK_KV)
+  const native = findNativeKv()
+  if (native) {
+    g.__SUKI_KV__ = wrapNativeKv(native.kv)
+    g.__SUKI_KV_MODE__ = 'native'
+    g.__SUKI_KV_BINDING__ = native.name
     return g.__SUKI_KV__
   }
+  g.__SUKI_KV_MODE__ = 'memory'
+  g.__SUKI_KV_BINDING__ = undefined
   return memorySingleton
 }
 
+export function getKvStoreStatus(): { mode: KvStoreMode; binding?: string; expectedBindings: string[] } {
+  getKvStore()
+  const g = globalThis as unknown as {
+    __SUKI_KV_MODE__?: KvStoreMode
+    __SUKI_KV_BINDING__?: string
+  }
+  return {
+    mode: g.__SUKI_KV_MODE__ ?? 'memory',
+    binding: g.__SUKI_KV_BINDING__,
+    expectedBindings: [...nativeBindingNames],
+  }
+}
+
 export function setKvStoreForTest(store: KvStore | undefined): void {
-  const g = globalThis as unknown as { __SUKI_KV__?: KvStore }
+  const g = globalThis as unknown as { __SUKI_KV__?: KvStore; __SUKI_KV_MODE__?: KvStoreMode }
   g.__SUKI_KV__ = store
+  g.__SUKI_KV_MODE__ = store ? 'test' : undefined
 }

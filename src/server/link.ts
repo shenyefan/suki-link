@@ -147,9 +147,19 @@ function kv(): KvStore {
   return getKvStore()
 }
 
+function linkKey(slug: string): string {
+  const bytes = new TextEncoder().encode(slug)
+  const encoded = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+  return `link_${encoded}`
+}
+
+function legacyLinkKey(slug: string): string {
+  return `link:${slug}`
+}
+
 export async function putLink(link: Link): Promise<void> {
   const expiration = link.expiration
-  await kv().put(`link:${link.slug}`, JSON.stringify(link), {
+  await kv().put(linkKey(link.slug), JSON.stringify(link), {
     expiration,
     metadata: {
       expiration,
@@ -161,20 +171,46 @@ export async function putLink(link: Link): Promise<void> {
 
 export async function getLink(slug: string): Promise<Link | null> {
   const cacheTtl = getLinkCacheTtl()
-  const raw = await kv().get(`link:${slug}`, { type: 'json', cacheTtl }) as Link | null
-  return raw ?? null
+  const raw = await kv().get(linkKey(slug), { type: 'json', cacheTtl }) as Link | null
+  if (raw)
+    return raw
+  const legacyRaw = await kv().get(legacyLinkKey(slug), { type: 'json', cacheTtl }) as Link | null
+  return legacyRaw ?? null
+}
+
+async function getLinkValueWithMetadata(slug: string): Promise<{
+  value: Link | null
+  metadata: Record<string, unknown> | null
+}> {
+  const primary = await kv().getWithMetadata(linkKey(slug), { type: 'json' })
+  if (primary.value)
+    return primary as { value: Link | null; metadata: Record<string, unknown> | null }
+  const legacy = await kv().getWithMetadata(legacyLinkKey(slug), { type: 'json' })
+  return legacy as { value: Link | null; metadata: Record<string, unknown> | null }
+}
+
+async function getLinkByStorageKey(key: string): Promise<{
+  value: Link | null
+  metadata: Record<string, unknown> | null
+}> {
+  const { metadata, value } = await kv().getWithMetadata(key, { type: 'json' }) as {
+    metadata: Record<string, unknown> | null
+    value: Link | null
+  }
+  return { metadata, value }
 }
 
 export async function getLinkWithMetadata(slug: string): Promise<{
   link: Link | null
   metadata: Record<string, unknown> | null
 }> {
-  const { value, metadata } = await kv().getWithMetadata(`link:${slug}`, { type: 'json' })
+  const { value, metadata } = await getLinkValueWithMetadata(slug)
   return { link: value as Link | null, metadata }
 }
 
 export async function deleteLink(slug: string): Promise<void> {
-  await kv().delete(`link:${slug}`)
+  await kv().delete(linkKey(slug))
+  await kv().delete(legacyLinkKey(slug))
 }
 
 export async function linkExists(slug: string): Promise<boolean> {
@@ -200,14 +236,11 @@ export async function listLinks(options: ListLinksOptions): Promise<ListLinksRes
     return listFilteredLinks(options)
 
   const limit = Math.min(options.limit, getKvListMaxBatch())
-  const list = await kv().list({ prefix: 'link:', limit, cursor: options.cursor })
+  const list = await kv().list({ prefix: 'link_', limit, cursor: options.cursor })
 
   const links = await Promise.all(
     list.keys.map(async (key: { name: string }) => {
-      const { metadata, value } = await kv().getWithMetadata(key.name, { type: 'json' }) as {
-        metadata: Record<string, unknown> | null
-        value: Link | null
-      }
+      const { metadata, value } = await getLinkByStorageKey(key.name)
       if (value) {
         return {
           ...(metadata ?? {}),
@@ -232,13 +265,10 @@ async function listFilteredLinks(options: ListLinksOptions): Promise<ListLinksRe
   let listComplete = false
 
   while (!listComplete) {
-    const list = await kv().list({ prefix: 'link:', limit: batchLimit, cursor })
+    const list = await kv().list({ prefix: 'link_', limit: batchLimit, cursor })
     const links = await Promise.all(
       list.keys.map(async (key: { name: string }) => {
-        const { metadata, value } = await kv().getWithMetadata(key.name, { type: 'json' }) as {
-          metadata: Record<string, unknown> | null
-          value: Link | null
-        }
+        const { metadata, value } = await getLinkByStorageKey(key.name)
         return value ? { ...(metadata ?? {}), ...value } : null
       }),
     )

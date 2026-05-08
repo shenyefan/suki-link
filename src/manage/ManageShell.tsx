@@ -10,8 +10,10 @@ import {
   Menu,
   Moon,
   Sun,
+  TriangleAlert,
 } from 'lucide-react'
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,12 +24,20 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { clearAdminToken, getAdminToken } from '@/manage/api'
+import { apiJson, clearAdminToken, getAdminToken } from '@/manage/api'
 
 const navItems = [
   { href: '/manage/links', label: '短链', icon: Link2 },
   { href: '/manage/monitoring', label: '监控', icon: BarChart3 },
 ]
+
+type SystemStatus = {
+  kv: {
+    mode: 'native' | 'memory' | 'test'
+    binding?: string
+    expectedBindings: string[]
+  }
+}
 
 function ThemeToggle({ onThemeChange }: { onThemeChange: (theme: 'light' | 'dark') => void }) {
   return (
@@ -53,11 +63,24 @@ function ThemeToggle({ onThemeChange }: { onThemeChange: (theme: 'light' | 'dark
   )
 }
 
+function MemoryKvNotice() {
+  return (
+    <Alert className="border-amber-500/50 bg-amber-500/10 px-3 py-2 text-amber-950 dark:text-amber-200">
+      <TriangleAlert className="h-4 w-4" />
+      <AlertTitle className="text-xs">内存模式</AlertTitle>
+      <AlertDescription className="text-xs text-amber-900/90 dark:text-amber-100/90">
+        未检测到 EdgeOne KV 绑定，数据重启后会丢失。请将 KV 变量名绑定为 Link。
+      </AlertDescription>
+    </Alert>
+  )
+}
+
 export function ManageShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark'>('dark')
+  const [isMemoryKv, setIsMemoryKv] = useState(false)
 
   useEffect(() => {
     if (pathname === '/manage/login') return
@@ -67,6 +90,23 @@ export function ManageShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
+
+  useEffect(() => {
+    if (pathname === '/manage/login' || !getAdminToken()) return
+    let cancelled = false
+    apiJson<SystemStatus>('/api/system/status')
+      .then((status) => {
+        if (!cancelled)
+          setIsMemoryKv(status.kv.mode === 'memory')
+      })
+      .catch(() => {
+        if (!cancelled)
+          setIsMemoryKv(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [pathname])
 
   if (pathname === '/manage/login') return <>{children}</>
 
@@ -111,6 +151,11 @@ export function ManageShell({ children }: { children: React.ReactNode }) {
           </nav>
         </ScrollArea>
         <div className="border-t border-border p-4">
+          {isMemoryKv && (
+            <div className="mb-3">
+              <MemoryKvNotice />
+            </div>
+          )}
           <Button
             variant="ghost"
             className="w-full justify-start gap-2 text-muted-foreground"
@@ -166,6 +211,11 @@ export function ManageShell({ children }: { children: React.ReactNode }) {
                 </nav>
               </ScrollArea>
               <div className="border-t border-border p-4">
+                {isMemoryKv && (
+                  <div className="mb-3">
+                    <MemoryKvNotice />
+                  </div>
+                )}
                 <Button
                   variant="ghost"
                   className="w-full justify-start gap-2 text-muted-foreground"
