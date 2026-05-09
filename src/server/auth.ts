@@ -28,7 +28,7 @@ export async function requireAuth(request: Request): Promise<Response | null> {
     return fail(401, '未授权', 401)
 
   if (token.length < 8)
-    return fail(401, 'Token 长度过短', 401)
+    return fail(401, '令牌长度过短', 401)
 
   if (storedPassword) {
     const matched = await bcrypt.compare(storedPassword, token)

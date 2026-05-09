@@ -2,61 +2,86 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import {
   BarChart3,
+  ChevronRight,
+  DatabaseBackup,
+  Languages,
   Link2,
   LogOut,
   Menu,
   Moon,
+  PanelLeft,
+  Settings2,
   Sun,
-  TriangleAlert,
 } from 'lucide-react'
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { apiJson, clearAdminToken, getAdminToken } from '@/manage/api'
+import { cn } from '@/lib/utils'
+import { clearAdminToken, getAdminToken } from '@/manage/api'
 
-const navItems = [
+type HeaderActionsContextValue = {
+  setActions: (actions: ReactNode) => void
+}
+
+const HeaderActionsContext = createContext<HeaderActionsContextValue | null>(null)
+
+export function useManageHeaderActions(actions: ReactNode) {
+  const context = useContext(HeaderActionsContext)
+
+  useEffect(() => {
+    if (!context) return
+    context.setActions(actions)
+    return () => context.setActions(null)
+  }, [actions, context])
+}
+
+const platformItems = [
   { href: '/manage/links', label: '短链', icon: Link2 },
   { href: '/manage/monitoring', label: '监控', icon: BarChart3 },
 ]
 
-type SystemStatus = {
-  kv: {
-    mode: 'native' | 'bridge' | 'memory' | 'test'
-    binding?: string
-    expectedBindings: string[]
-    bindingProbe: Record<string, boolean>
-  }
-}
+const settingItems = [
+  { href: '/manage/migrate', label: '迁移', icon: DatabaseBackup },
+]
 
-function ThemeToggle({ onThemeChange }: { onThemeChange: (theme: 'light' | 'dark') => void }) {
+function ThemeMenu({ onThemeChange }: { onThemeChange: (theme: 'light' | 'dark') => void }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+        <Button variant="ghost" size="icon" className="size-8">
+          <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+          <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           <span className="sr-only">切换主题</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => onThemeChange('light')}>
-          <Sun className="mr-2 h-4 w-4" />
+          <Sun className="size-4" />
           浅色
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onThemeChange('dark')}>
-          <Moon className="mr-2 h-4 w-4" />
+          <Moon className="size-4" />
           深色
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -64,24 +89,131 @@ function ThemeToggle({ onThemeChange }: { onThemeChange: (theme: 'light' | 'dark
   )
 }
 
-function MemoryKvNotice() {
+function NavSection({
+  title,
+  items,
+  pathname,
+  onNavigate,
+}: {
+  title: string
+  items: typeof platformItems
+  pathname: string
+  onNavigate?: () => void
+}) {
   return (
-    <Alert className="border-amber-500/50 bg-amber-500/10 px-3 py-2 text-amber-950 dark:text-amber-200">
-      <TriangleAlert className="h-4 w-4" />
-      <AlertTitle className="text-xs">内存模式</AlertTitle>
-      <AlertDescription className="text-xs text-amber-900/90 dark:text-amber-100/90">
-        未检测到 EdgeOne KV 绑定，数据重启后会丢失。请将 KV 变量名绑定为 Link。
-      </AlertDescription>
-    </Alert>
+    <div className="grid gap-1">
+      <div className="px-2 py-1 text-xs font-medium text-muted-foreground">{title}</div>
+      {items.map((item) => {
+        const active = pathname.startsWith(item.href)
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              'flex h-8 items-center gap-2 rounded-md px-2 text-sm transition-colors',
+              active
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                : 'text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
+            )}
+          >
+            <item.icon className="size-4" />
+            <span>{item.label}</span>
+          </Link>
+        )
+      })}
+    </div>
   )
 }
 
-export function ManageShell({ children }: { children: React.ReactNode }) {
+function SidebarContent({
+  pathname,
+  onNavigate,
+  onLogout,
+  onThemeChange,
+}: {
+  pathname: string
+  onNavigate?: () => void
+  onLogout: () => void
+  onThemeChange: (theme: 'light' | 'dark') => void
+}) {
+  return (
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
+      <div className="flex h-16 items-center gap-2 px-3">
+        <Link href="/manage/links" onClick={onNavigate} className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5">
+          <Avatar className="size-8 rounded-md">
+            <AvatarImage src="/sink.png" alt="Suki-Link" />
+            <AvatarFallback className="rounded-md">SL</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 leading-tight">
+            <div className="truncate text-sm font-semibold">Suki-Link</div>
+            <div className="truncate text-xs text-muted-foreground">Link Management</div>
+          </div>
+        </Link>
+      </div>
+
+      <ScrollArea className="flex-1 px-3">
+        <div className="grid gap-4 py-2">
+          <NavSection title="平台" items={platformItems} pathname={pathname} onNavigate={onNavigate} />
+          <NavSection title="设置" items={settingItems} pathname={pathname} onNavigate={onNavigate} />
+        </div>
+      </ScrollArea>
+
+      <div className="grid gap-1 border-t p-3">
+        <div className="flex items-center justify-between rounded-md px-2 py-1.5">
+          <div className="flex items-center gap-2">
+            <Settings2 className="size-4 text-muted-foreground" />
+            <span className="text-sm">偏好</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="size-8" disabled>
+              <Languages className="size-4" />
+              <span className="sr-only">语言</span>
+            </Button>
+            <ThemeMenu onThemeChange={onThemeChange} />
+          </div>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-11 justify-start gap-2 px-2">
+              <Avatar className="size-8">
+                <AvatarFallback>SU</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1 text-left leading-tight">
+                <div className="truncate text-sm font-medium">Suki</div>
+                <div className="truncate text-xs text-muted-foreground">管理员</div>
+              </div>
+              <ChevronRight className="size-4 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="end" className="w-48">
+            <DropdownMenuLabel>Suki-Link</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onLogout}>
+              <LogOut className="size-4" />
+              退出登录
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  )
+}
+
+function titleFromPath(pathname: string) {
+  if (pathname.startsWith('/manage/monitoring')) return '监控'
+  if (pathname.startsWith('/manage/migrate')) return '迁移'
+  return '短链'
+}
+
+export function ManageShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const [open, setOpen] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark'>('dark')
-  const [isMemoryKv, setIsMemoryKv] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [actions, setActions] = useState<ReactNode>(null)
+  const headerContext = useMemo(() => ({ setActions }), [])
 
   useEffect(() => {
     if (pathname === '/manage/login') return
@@ -92,23 +224,6 @@ export function ManageShell({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
 
-  useEffect(() => {
-    if (pathname === '/manage/login' || !getAdminToken()) return
-    let cancelled = false
-    apiJson<SystemStatus>('/api/system/status')
-      .then((status) => {
-        if (!cancelled)
-          setIsMemoryKv(status.kv.mode === 'memory')
-      })
-      .catch(() => {
-        if (!cancelled)
-          setIsMemoryKv(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [pathname])
-
   if (pathname === '/manage/login') return <>{children}</>
 
   const handleLogout = () => {
@@ -117,138 +232,52 @@ export function ManageShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Desktop Sidebar */}
-      <aside className="hidden w-64 shrink-0 border-r border-border bg-card/40 md:flex md:flex-col">
-        <div className="flex h-14 items-center justify-between border-b border-border px-4">
-          <Link href="/manage/links" className="flex items-center gap-2">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src="/sink.png" alt="Suki-Link" />
-              <AvatarFallback>SL</AvatarFallback>
-            </Avatar>
-            <span className="text-sm font-semibold">Suki-Link</span>
-          </Link>
-          <ThemeToggle onThemeChange={setTheme} />
-        </div>
-        <ScrollArea className="flex-1 px-3 py-4">
-          <nav className="flex flex-col gap-1">
-            {navItems.map((item) => {
-              const isActive = pathname.startsWith(item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                  }`}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              )
-            })}
-          </nav>
-        </ScrollArea>
-        <div className="border-t border-border p-4">
-          {isMemoryKv && (
-            <div className="mb-3">
-              <MemoryKvNotice />
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 text-muted-foreground"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-4 w-4" />
-            退出登录
-          </Button>
-        </div>
-      </aside>
+    <HeaderActionsContext.Provider value={headerContext}>
+      <div className="flex h-svh bg-sidebar">
+        <aside className="hidden w-64 shrink-0 md:block">
+          <SidebarContent
+            pathname={pathname}
+            onLogout={handleLogout}
+            onThemeChange={setTheme}
+          />
+        </aside>
 
-      {/* Main Content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile Header */}
-        <header className="flex h-14 items-center gap-4 border-b border-border bg-background/80 px-4 backdrop-blur-md md:hidden">
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Menu className="h-4 w-4" />
-                <span className="sr-only">打开菜单</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
-              <div className="flex h-14 items-center border-b border-border px-4">
-                <Link href="/manage/links" className="flex items-center gap-2" onClick={() => setOpen(false)}>
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src="/sink.png" alt="Suki-Link" />
-                    <AvatarFallback>SL</AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm font-semibold">Suki-Link</span>
-                </Link>
-              </div>
-              <ScrollArea className="flex-1 px-3 py-4">
-                <nav className="flex flex-col gap-1">
-                  {navItems.map((item) => {
-                    const isActive = pathname.startsWith(item.href)
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setOpen(false)}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                          isActive
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                        }`}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                      </Link>
-                    )
-                  })}
-                </nav>
-              </ScrollArea>
-              <div className="border-t border-border p-4">
-                {isMemoryKv && (
-                  <div className="mb-3">
-                    <MemoryKvNotice />
-                  </div>
-                )}
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-2 text-muted-foreground"
-                  onClick={() => {
-                    setOpen(false)
-                    handleLogout()
-                  }}
-                >
-                  <LogOut className="h-4 w-4" />
-                  退出登录
+        <div className="flex min-w-0 flex-1 flex-col bg-background md:m-2 md:rounded-xl md:border md:shadow-sm">
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8 md:hidden">
+                  <Menu className="size-4" />
+                  <span className="sr-only">打开菜单</span>
                 </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
-          <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6">
-              <AvatarImage src="/sink.png" alt="Suki-Link" />
-              <AvatarFallback>SL</AvatarFallback>
-            </Avatar>
-            <span className="text-sm font-semibold">Suki-Link</span>
-          </div>
-          <div className="flex-1" />
-          <ThemeToggle onThemeChange={setTheme} />
-        </header>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-0">
+                <SidebarContent
+                  pathname={pathname}
+                  onNavigate={() => setMobileOpen(false)}
+                  onLogout={handleLogout}
+                  onThemeChange={setTheme}
+                />
+              </SheetContent>
+            </Sheet>
+            <Button variant="ghost" size="icon" className="hidden size-8 md:inline-flex">
+              <PanelLeft className="size-4" />
+              <span className="sr-only">侧边栏</span>
+            </Button>
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <div className="flex min-w-0 items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Dashboard</span>
+              <ChevronRight className="size-4 text-muted-foreground" />
+              <span className="truncate font-medium">{titleFromPath(pathname)}</span>
+            </div>
+            <div className="ml-auto flex items-center gap-2">{actions}</div>
+          </header>
 
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="container mx-auto max-w-6xl p-4 md:p-6">
+          <main className="min-h-0 flex-1 overflow-y-auto p-4">
             {children}
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
+    </HeaderActionsContext.Provider>
   )
 }

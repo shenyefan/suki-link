@@ -1,33 +1,35 @@
-import { z } from 'zod'
-
 import { requireAuth } from '@/server/auth'
 import { getKvBatchLimit } from '@/server/env'
-import { ok, parseQuery } from '@/server/response'
+import { ok } from '@/server/response'
 import { listLinks, toApiLink, type ExportData } from '@/server/link'
-
-const ExportSchema = z.object({
-  cursor: z.string().trim().max(1024).optional(),
-})
 
 export async function GET(request: Request): Promise<Response> {
   const deny = await requireAuth(request)
   if (deny)
     return deny
 
-  const parsed = parseQuery(request, ExportSchema)
-  if (parsed instanceof Response)
-    return parsed
-
   const limit = getKvBatchLimit()
-  const list = await listLinks({ limit, cursor: parsed.cursor })
+  const links = []
+  let cursor: string | undefined
+  let listComplete = false
+
+  while (!listComplete) {
+    const list = await listLinks({ limit, cursor })
+    links.push(...list.links)
+    listComplete = list.list_complete
+    cursor = list.cursor
+
+    if (!cursor && !listComplete) {
+      break
+    }
+  }
 
   const exportData: ExportData = {
     version: '1.0',
     exportedAt: new Date().toISOString(),
-    count: list.links.length,
-    links: list.links.map(toApiLink),
-    cursor: list.cursor,
-    list_complete: list.list_complete,
+    count: links.length,
+    links: links.map(toApiLink),
+    list_complete: true,
   }
 
   const res = ok(exportData)

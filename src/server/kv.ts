@@ -26,7 +26,7 @@ async function getKvBridgeUrl(): Promise<string> {
     const host = h.get('x-forwarded-host') || h.get('host')
 
     if (!host) {
-        throw new Error('cannot determine host for KV bridge')
+        throw new Error('无法确定KV桥接地址')
     }
 
     const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1')
@@ -42,7 +42,7 @@ async function call<T>(
     const token = getSitePassword()
 
     if (!token) {
-        throw new Error('SUKI_SITE_PASSWORD not set')
+        throw new Error('未配置站点密码')
     }
 
     const res = await fetch(await getKvBridgeUrl(), {
@@ -62,7 +62,7 @@ async function call<T>(
     } | null
 
     if (!res.ok || !data?.ok) {
-        throw new Error(data?.error ?? `KV bridge error ${res.status}`)
+        throw new Error(data?.error ?? `KV桥接请求失败，状态码${res.status}`)
     }
 
     return data.data as T

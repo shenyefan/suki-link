@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { ChevronDown, ChevronDownIcon, Eye, EyeOff, Settings2, Shuffle } from 'lucide-react'
@@ -25,9 +25,10 @@ interface LinkEditorProps {
   onOpenChange: (open: boolean) => void
   slug?: string
   onSuccess: () => void
+  trigger?: ReactNode
 }
 
-export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorProps) {
+export function LinkEditor({ open, onOpenChange, slug, onSuccess, trigger }: LinkEditorProps) {
   const isEdit = !!slug
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -170,7 +171,9 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
   }
 
   return (
-    <ResponsiveModal
+    <>
+      {trigger}
+      <ResponsiveModal
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? '编辑短链' : '创建短链'}
@@ -183,7 +186,7 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
           </Button>
         </div>
       }
-    >
+      >
       <ScrollArea className="max-h-[70vh]">
         <div className="space-y-4 pr-4">
           {/* URL */}
@@ -374,6 +377,7 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
 
         </div>
       </ScrollArea>
-    </ResponsiveModal>
+      </ResponsiveModal>
+    </>
   )
 }

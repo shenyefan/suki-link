@@ -21,7 +21,7 @@ const LinkUpdateSchema = z.object({
   slug: z.string().trim().max(2048).optional(),
   comment: z.string().trim().max(2048).optional(),
   expiration: z.number().int().safe().refine(expiration => expiration > Math.floor(Date.now() / 1000), {
-    message: 'expiration must be greater than current time',
+    message: '过期时间必须晚于当前时间',
     path: ['expiration'],
   }).optional(),
   redirectWithQuery: z.boolean().optional(),

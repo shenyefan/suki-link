@@ -5,8 +5,8 @@ import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast'
 import { login, setAdminToken } from '@/manage/api'
 
@@ -36,15 +36,14 @@ export default function ManageLoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background p-4">
+    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">登录</CardTitle>
-          <CardDescription>输入密码访问管理台</CardDescription>
+          <CardTitle className="text-2xl">Suki-Link</CardTitle>
+          <CardDescription>登录 Dashboard 管理短链</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Hidden username for password managers */}
+          <form onSubmit={handleSubmit}>
             <input
               type="text"
               name="username"
@@ -53,8 +52,9 @@ export default function ManageLoginPage() {
               tabIndex={-1}
               aria-hidden="true"
             />
-            <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="password">密码</FieldLabel>
               <Input
                 id="password"
                 type="password"
@@ -64,11 +64,12 @@ export default function ManageLoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-            </div>
+              </Field>
 
-            <Button type="submit" className="w-full" disabled={loading || !password}>
-              {loading ? '登录中...' : '登录'}
-            </Button>
+              <Button type="submit" className="w-full" disabled={loading || !password}>
+                {loading ? '登录中' : '登录'}
+              </Button>
+            </FieldGroup>
           </form>
         </CardContent>
       </Card>

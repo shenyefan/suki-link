@@ -120,13 +120,13 @@ export async function onRequestPost(context) {
   const token = request.headers.get('x-suki-token') || ''
 
   if (!env.SUKI_SITE_PASSWORD || token !== env.SUKI_SITE_PASSWORD) {
-    return json({ ok: false, error: 'unauthorized' }, 401)
+    return json({ ok: false, error: '未授权' }, 401)
   }
 
   const { bindingName, kv } = getKv(env)
 
   if (!kv) {
-    return json({ ok: false, error: `kv binding not found: ${bindingName}` }, 503)
+    return json({ ok: false, error: `未找到KV绑定：${bindingName}` }, 503)
   }
 
   /** @type {KvRequestBody} */
@@ -136,7 +136,7 @@ export async function onRequestPost(context) {
     const parsed = await request.json()
     body = isObject(parsed) ? parsed : {}
   } catch {
-    return json({ ok: false, error: 'invalid json' }, 400)
+    return json({ ok: false, error: '请求体不是合法JSON' }, 400)
   }
 
   const action = body.action
@@ -144,7 +144,7 @@ export async function onRequestPost(context) {
   const storageKey = key ? toStorageKey(key) : ''
 
   if (action !== 'list' && !key) {
-    return json({ ok: false, error: 'missing key' }, 400)
+    return json({ ok: false, error: '缺少键名' }, 400)
   }
 
   try {
@@ -156,7 +156,7 @@ export async function onRequestPost(context) {
 
       case 'put': {
         if (typeof body.value !== 'string') {
-          return json({ ok: false, error: 'missing value' }, 400)
+          return json({ ok: false, error: '缺少写入内容' }, 400)
         }
 
         await kv.put(storageKey, body.value)
@@ -202,12 +202,12 @@ export async function onRequestPost(context) {
       }
 
       default:
-        return json({ ok: false, error: 'unknown action' }, 400)
+        return json({ ok: false, error: '未知操作' }, 400)
     }
   } catch (error) {
     return json({
       ok: false,
-      error: error instanceof Error ? error.message : 'kv operation failed',
+      error: error instanceof Error ? error.message : 'KV操作失败',
     }, 500)
   }
 }

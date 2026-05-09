@@ -62,7 +62,7 @@ export async function GET(request: Request): Promise<Response> {
     return deny
   const cred = getTeoCredential()
   if (!cred)
-    return fail(500, '缺少 TEo 凭证', 500)
+    return fail(500, '缺少EdgeOne凭证', 500)
   const q = parseQuery(request, QuerySchema)
   if (q instanceof Response)
     return q

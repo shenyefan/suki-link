@@ -14,7 +14,7 @@ export async function GET(request: Request): Promise<Response> {
     return deny
   const cred = getTeoCredential()
   if (!cred)
-    return fail(500, '缺少 TEo 凭证', 500)
+    return fail(500, '缺少EdgeOne凭证', 500)
   const q = parseQuery(request, QuerySchema)
   if (q instanceof Response)
     return q
@@ -22,12 +22,12 @@ export async function GET(request: Request): Promise<Response> {
     const { describePagesCloudFunctionMonthlyStats, resolvePagesZoneId } = await import('@/server/monitoring')
     const zoneId = await resolvePagesZoneId(cred.secretId, cred.secretKey, q.zoneId)
     if (!zoneId)
-      return fail(400, '缺少 ZoneId 且无法自动解析', 400)
+      return fail(400, '缺少站点ID且无法自动解析', 400)
     const data = await describePagesCloudFunctionMonthlyStats(cred.secretId, cred.secretKey, zoneId)
     return ok(data)
   }
   catch (err) {
-    const message = err instanceof Error ? err.message : 'DescribePagesResources 失败'
+    const message = err instanceof Error ? err.message : '查询Pages资源失败'
     return fail(500, message, 500)
   }
 }

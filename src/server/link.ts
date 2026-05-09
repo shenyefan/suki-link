@@ -31,7 +31,7 @@ function buildLinkSchema() {
   const slugLen = getSlugDefaultLength()
   const now = () => Math.floor(Date.now() / 1000)
   const futureTimestamp = z.number().int().safe().refine(expiration => expiration > now(), {
-    message: 'expiration must be greater than current time',
+    message: '过期时间必须晚于当前时间',
     path: ['expiration'],
   })
 
