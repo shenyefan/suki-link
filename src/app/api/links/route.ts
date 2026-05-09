@@ -8,7 +8,6 @@ import {
   createLinkSchema,
   listLinks,
   normalizeSlug,
-  linkExists,
   putLink,
   toAdminApiLink,
   toApiLink,
@@ -16,7 +15,7 @@ import {
 } from '@/server/link'
 
 const ListSchema = z.object({
-  limit: z.number().max(1024).default(20),
+  limit: z.coerce.number().int().min(1).max(1024).default(20),
   cursor: z.string().trim().max(1024).optional(),
   search: z.string().trim().max(2048).optional(),
   sort: z.enum(['newest', 'oldest', 'az', 'za']).default('newest').optional(),
@@ -41,8 +40,9 @@ export async function GET(request: Request): Promise<Response> {
   })
 
   return ok({
-    ...list,
-    links: list.links.map(link => (link ? toAdminApiLink(link) : null)),
+    links: list.links.map(toAdminApiLink),
+    list_complete: list.list_complete,
+    cursor: list.cursor,
   })
 }
 
@@ -63,10 +63,10 @@ export async function POST(request: Request): Promise<Response> {
   if (reserved)
     return reserved
 
-  if (await linkExists(slug))
+  const result = await putLink(link as Link, true)
+  if (!result.ok)
     return fail(409, '短链已存在', 409, { slug })
 
-  await putLink(link as Link)
   const shortLink = buildShortLink(request, slug)
   return ok({ link: toApiLink(link as Link), shortLink }, '创建成功', 201)
 }

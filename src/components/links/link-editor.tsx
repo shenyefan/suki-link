@@ -42,9 +42,10 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
   const [redirectWithQuery, setRedirectWithQuery] = useState(false)
   const [cloaking, setCloaking] = useState(false)
   const [password, setPassword] = useState('')
+  const [unsafe, setUnsafe] = useState(false)
 
   // Check if any advanced option is set
-  const hasAdvancedOptions = expirationDate || redirectWithQuery || cloaking || password
+  const hasAdvancedOptions = expirationDate || redirectWithQuery || cloaking || password || unsafe
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
           setRedirectWithQuery(data.redirectWithQuery === true)
           setCloaking(data.cloaking === true)
           setPassword(typeof data.password === 'string' ? data.password : '')
+          setUnsafe(data.unsafe === true)
           
           if (typeof data.expiration === 'number' && data.expiration > 0) {
             const d = new Date(data.expiration * 1000)
@@ -76,7 +78,7 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
           }
           
           // Auto-show advanced if any option is set
-          const hasAdvanced = data.redirectWithQuery || data.cloaking || data.password || data.expiration
+          const hasAdvanced = data.redirectWithQuery || data.cloaking || data.password || data.expiration || data.unsafe
           setShowAdvanced(!!hasAdvanced)
         })
         .catch((err) => {
@@ -94,6 +96,7 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
         setRedirectWithQuery(false)
         setCloaking(false)
         setPassword('')
+        setUnsafe(false)
         setShowAdvanced(false)
       })
     }
@@ -145,6 +148,7 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
       if (redirectWithQuery) body.redirectWithQuery = true
       if (cloaking) body.cloaking = true
       if (password) body.password = password
+      if (unsafe) body.unsafe = true
 
       const endpoint = isEdit ? `/api/links/${encodeURIComponent(slug)}` : '/api/links'
       const method = isEdit ? 'PUT' : 'POST'
@@ -252,7 +256,7 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
                   <ChevronDown className={cn('h-4 w-4 transition-transform', showAdvanced && 'rotate-180')} />
                 </Button>
               </CollapsibleTrigger>
-              <p className="text-xs text-muted-foreground">过期时间、查询参数、遮蔽和密码保护</p>
+              <p className="text-xs text-muted-foreground">过期时间、查询参数、遮蔽、密码保护和确认跳转</p>
             </div>
 
             <CollapsibleContent className="space-y-4">
@@ -329,7 +333,7 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-0.5">
                   <Label htmlFor="cloaking">链接遮蔽</Label>
-                  <p className="text-xs text-muted-foreground">在地址栏显示短链地址</p>
+                  <p className="text-xs text-muted-foreground">在地址栏保留短链地址</p>
                 </div>
                 <Switch id="cloaking" checked={cloaking} onCheckedChange={setCloaking} />
               </div>
@@ -356,6 +360,14 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess }: LinkEditorPr
                     <span className="sr-only">{showPassword ? '隐藏密码' : '显示密码'}</span>
                   </Button>
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="unsafe">确认跳转</Label>
+                  <p className="text-xs text-muted-foreground">访问前展示确认页面</p>
+                </div>
+                <Switch id="unsafe" checked={unsafe} onCheckedChange={setUnsafe} />
               </div>
             </CollapsibleContent>
           </Collapsible>

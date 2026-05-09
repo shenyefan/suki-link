@@ -1,35 +1,39 @@
 import { z } from 'zod'
 
 import { requireAuth } from '@/server/auth'
+import { getSlugRegex } from '@/server/env'
 import { ok, fail, parseJsonBody } from '@/server/response'
 import {
   assertSlugAllowed,
   buildShortLink,
-  createLinkSchema,
   deleteLink,
   getLink,
-  getLinkWithMetadata,
   linkExists,
   normalizeSlug,
   putLink,
+  renameSlug,
   toAdminApiLink,
   type Link,
 } from '@/server/link'
 
-const LinkSchema = createLinkSchema()
-const LinkUpdateSchema = LinkSchema.extend({
+const LinkUpdateSchema = z.object({
+  url: z.string().trim().url().max(2048),
   slug: z.string().trim().max(2048).optional(),
+  comment: z.string().trim().max(2048).optional(),
+  expiration: z.number().int().safe().refine(expiration => expiration > Math.floor(Date.now() / 1000), {
+    message: 'expiration must be greater than current time',
+    path: ['expiration'],
+  }).optional(),
+  redirectWithQuery: z.boolean().optional(),
+  cloaking: z.boolean().optional(),
+  password: z.string().trim().min(1).max(128).optional(),
+  unsafe: z.boolean().optional(),
 })
 
 const optionalFields = [
   'comment',
-  'title',
-  'description',
-  'image',
-  'apple',
-  'google',
-  'cloaking',
   'redirectWithQuery',
+  'cloaking',
   'password',
   'expiration',
   'unsafe',
@@ -44,13 +48,9 @@ export async function GET(
     return deny
 
   const { slug } = await context.params
-  const { link, metadata } = await getLinkWithMetadata(slug)
-  if (link) {
-    return ok({
-      ...metadata,
-      ...toAdminApiLink(link),
-    })
-  }
+  const link = await getLink(normalizeSlug(slug))
+  if (link)
+    return ok(toAdminApiLink(link))
 
   return fail(404, '未找到短链', 404)
 }
@@ -63,10 +63,14 @@ export async function PUT(
   if (deny)
     return deny
 
-  const { slug: originalSlug } = await context.params
+  const { slug } = await context.params
+  const originalSlug = normalizeSlug(slug)
   const parsed = await parseJsonBody(request, LinkUpdateSchema)
   if (parsed instanceof Response)
     return parsed
+
+  if (parsed.slug && !getSlugRegex().test(parsed.slug))
+    return fail(400, '短链标识格式无效', 400)
 
   const existingLink = await getLink(originalSlug)
   if (!existingLink)
@@ -94,10 +98,15 @@ export async function PUT(
       delete (updatedLink as Record<string, unknown>)[field]
   }
 
-  if (newSlug !== originalSlug)
-    await deleteLink(originalSlug)
+  if (newSlug !== originalSlug) {
+    const renameResult = await renameSlug({ ...updatedLink, slug: originalSlug }, newSlug)
+    if (!renameResult.ok)
+      return fail(409, '新短链标识已存在', 409)
+  }
+  else {
+    await putLink(updatedLink)
+  }
 
-  await putLink(updatedLink)
   const shortLink = buildShortLink(request, newSlug)
   return ok({ link: toAdminApiLink(updatedLink), shortLink }, '更新成功')
 }
@@ -111,6 +120,7 @@ export async function DELETE(
     return deny
 
   const { slug } = await context.params
-  await deleteLink(slug)
-  return ok({ slug }, '已删除')
+  const normalizedSlug = normalizeSlug(slug)
+  await deleteLink(normalizedSlug)
+  return ok({ slug: normalizedSlug }, '已删除')
 }

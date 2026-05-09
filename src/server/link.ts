@@ -5,55 +5,57 @@ import { z } from 'zod'
 import {
   getCaseSensitive,
   getKvListMaxBatch,
-  getLinkCacheTtl,
   getPublicOrigin,
   getReserveSlugs,
   getSlugDefaultLength,
   getSlugRegex,
 } from '@/server/env'
-import type { KvStore } from '@/server/kv'
-import { getKvStore } from '@/server/kv'
+import { kv } from '@/server/kv'
 import { fail } from '@/server/response'
 
-const alphabet = '23456789abcdefghjkmnpqrstuvwxyz'
+const slugAlphabet = '23456789abcdefghjkmnpqrstuvwxyz'
+const idAlphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
 
 export function genSlug(length?: number): string {
-  const len = length ?? getSlugDefaultLength()
-  return customAlphabet(alphabet, len)()
+  return customAlphabet(slugAlphabet, length ?? getSlugDefaultLength())()
 }
 
-export function createLinkSchema() {
+export function genId(): string {
+  return customAlphabet(idAlphabet, 16)()
+}
+
+let _cachedSchema: ReturnType<typeof buildLinkSchema> | null = null
+
+function buildLinkSchema() {
   const slugRegex = getSlugRegex()
   const slugLen = getSlugDefaultLength()
+  const now = () => Math.floor(Date.now() / 1000)
+  const futureTimestamp = z.number().int().safe().refine(expiration => expiration > now(), {
+    message: 'expiration must be greater than current time',
+    path: ['expiration'],
+  })
 
   return z.object({
+    id: z.string().length(16).default(() => genId()),
     url: z.string().trim().url().max(2048),
     slug: z.string().trim().max(2048).regex(slugRegex).default(() => genSlug(slugLen)),
     comment: z.string().trim().max(2048).optional(),
-    createdAt: z.number().int().safe().default(() => Math.floor(Date.now() / 1000)),
-    updatedAt: z.number().int().safe().default(() => Math.floor(Date.now() / 1000)),
-    expiration: z
-      .number()
-      .int()
-      .safe()
-      .refine(exp => exp > Math.floor(Date.now() / 1000), {
-        message: 'expiration must be greater than current time',
-        path: ['expiration'],
-      })
-      .optional(),
-    title: z.string().trim().max(256).optional(),
-    description: z.string().trim().max(2048).optional(),
-    image: z.string().trim().max(128).optional(),
-    apple: z.string().trim().url().max(2048).optional(),
-    google: z.string().trim().url().max(2048).optional(),
-    cloaking: z.boolean().optional(),
+    createdAt: z.number().int().safe().default(now),
+    updatedAt: z.number().int().safe().default(now),
+    expiration: futureTimestamp.optional(),
     redirectWithQuery: z.boolean().optional(),
+    cloaking: z.boolean().optional(),
     password: z.string().trim().min(1).max(128).optional(),
     unsafe: z.boolean().optional(),
   })
 }
 
-export type Link = z.infer<ReturnType<typeof createLinkSchema>>
+export function createLinkSchema() {
+  _cachedSchema ??= buildLinkSchema()
+  return _cachedSchema
+}
+
+export type Link = z.infer<ReturnType<typeof buildLinkSchema>>
 
 export type ApiLink = Omit<Link, 'password'> & {
   createTime: string
@@ -61,8 +63,9 @@ export type ApiLink = Omit<Link, 'password'> & {
 }
 
 export function toApiLink(link: Link): ApiLink {
-  const rest = { ...link }
-  delete rest.password
+  const { password, ...rest } = link
+  void password
+
   return {
     ...rest,
     createTime: new Date(link.createdAt * 1000).toISOString(),
@@ -70,8 +73,7 @@ export function toApiLink(link: Link): ApiLink {
   }
 }
 
-export type AdminApiLink = Omit<Link, 'password'> & {
-  password?: string
+export type AdminApiLink = Link & {
   createTime: string
   updateTime: string
 }
@@ -84,27 +86,22 @@ export function toAdminApiLink(link: Link): AdminApiLink {
   }
 }
 
-export function assertSlugAllowed(slug: string): Response | null {
-  const reserved = getReserveSlugs()
-  if (reserved.includes(slug))
-    return fail(400, `slug 为系统保留: ${slug}`, 400)
-  return null
+function buildImportLinkSchema() {
+  return createLinkSchema()
+      .omit({ expiration: true })
+      .extend({ expiration: z.number().int().safe().optional() })
 }
 
-const importLinkSchema = createLinkSchema()
-  .omit({ expiration: true })
-  .extend({
-    expiration: z.number().int().safe().optional(),
+export function createImportDataSchema() {
+  return z.object({
+    version: z.string(),
+    exportedAt: z.string().optional(),
+    count: z.number().int().optional(),
+    links: z.array(buildImportLinkSchema()).min(1),
   })
+}
 
-export const ImportDataSchema = z.object({
-  version: z.string(),
-  exportedAt: z.string().optional(),
-  count: z.number().int().optional(),
-  links: z.array(importLinkSchema).min(1),
-})
-
-export type ImportData = z.infer<typeof ImportDataSchema>
+export type ImportData = z.infer<ReturnType<typeof createImportDataSchema>>
 
 export interface ImportResultItem {
   index: number
@@ -118,7 +115,7 @@ export interface ImportResult {
   failed: number
   successItems: ImportResultItem[]
   skippedItems: ImportResultItem[]
-  failedItems: (ImportResultItem & { reason: string })[]
+  failedItems: Array<ImportResultItem & { reason: string }>
 }
 
 export interface ExportData {
@@ -143,184 +140,197 @@ export function buildShortLink(request: Request, slug: string): string {
   return `${getPublicOrigin(request)}/${slug}`
 }
 
-function kv(): KvStore {
-  return getKvStore()
+export function buildTargetUrl(
+    url: string,
+    query: Record<string, string | string[] | undefined>,
+    appendQuery: boolean,
+): string {
+  return appendQuery ? withQuery(url, query as QueryObject) : url
+}
+
+export function assertSlugAllowed(slug: string): Response | null {
+  if (getReserveSlugs().includes(slug)) {
+    return fail(400, `slug 为系统保留: ${slug}`, 400)
+  }
+
+  return null
 }
 
 function linkKey(slug: string): string {
-  const bytes = new TextEncoder().encode(slug)
-  const encoded = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
-  return `link_${encoded}`
+  return `link_${slug}`
 }
 
-function legacyLinkKey(slug: string): string {
-  return `link:${slug}`
+function parseLink(raw: string | null): Link | null {
+  if (!raw) return null
+
+  try {
+    return JSON.parse(raw) as Link
+  } catch {
+    return null
+  }
 }
 
-export async function putLink(link: Link): Promise<void> {
-  const expiration = link.expiration
-  await kv().put(linkKey(link.slug), JSON.stringify(link), {
-    expiration,
-    metadata: {
-      expiration,
-      url: withoutQuery(link.url),
-      comment: link.comment,
-    },
-  })
+export async function putLink(
+    link: Link,
+    ifNotExists = false,
+): Promise<{ ok: true } | { ok: false; conflict: true }> {
+  if (ifNotExists) {
+    const existing = await getLink(link.slug)
+
+    if (existing) {
+      return { ok: false, conflict: true }
+    }
+  }
+
+  await kv.put(linkKey(link.slug), JSON.stringify(link))
+
+  return { ok: true }
 }
 
 export async function getLink(slug: string): Promise<Link | null> {
-  const cacheTtl = getLinkCacheTtl()
-  const raw = await kv().get(linkKey(slug), { type: 'json', cacheTtl }) as Link | null
-  if (raw)
-    return raw
-  const legacyRaw = await kv().get(legacyLinkKey(slug), { type: 'json', cacheTtl }) as Link | null
-  return legacyRaw ?? null
+  return parseLink(await kv.get(linkKey(slug)))
 }
 
-async function getLinkValueWithMetadata(slug: string): Promise<{
-  value: Link | null
-  metadata: Record<string, unknown> | null
-}> {
-  const primary = await kv().getWithMetadata(linkKey(slug), { type: 'json' })
-  if (primary.value)
-    return primary as { value: Link | null; metadata: Record<string, unknown> | null }
-  const legacy = await kv().getWithMetadata(legacyLinkKey(slug), { type: 'json' })
-  return legacy as { value: Link | null; metadata: Record<string, unknown> | null }
-}
-
-async function getLinkByStorageKey(key: string): Promise<{
-  value: Link | null
-  metadata: Record<string, unknown> | null
-}> {
-  const { metadata, value } = await kv().getWithMetadata(key, { type: 'json' }) as {
-    metadata: Record<string, unknown> | null
-    value: Link | null
+export async function renameSlug(
+    link: Link,
+    newSlug: string,
+): Promise<{ ok: true } | { ok: false; conflict: true }> {
+  const updated: Link = {
+    ...link,
+    slug: newSlug,
+    updatedAt: Math.floor(Date.now() / 1000),
   }
-  return { metadata, value }
-}
 
-export async function getLinkWithMetadata(slug: string): Promise<{
-  link: Link | null
-  metadata: Record<string, unknown> | null
-}> {
-  const { value, metadata } = await getLinkValueWithMetadata(slug)
-  return { link: value as Link | null, metadata }
+  const result = await putLink(updated, true)
+
+  if (!result.ok) {
+    return result
+  }
+
+  await kv.delete(linkKey(link.slug))
+
+  return { ok: true }
 }
 
 export async function deleteLink(slug: string): Promise<void> {
-  await kv().delete(linkKey(slug))
-  await kv().delete(legacyLinkKey(slug))
+  await kv.delete(linkKey(slug))
 }
 
 export async function linkExists(slug: string): Promise<boolean> {
-  const link = await getLink(slug)
-  return link !== null
+  return (await getLink(slug)) !== null
 }
 
-interface ListLinksOptions {
+export type SortOrder = 'newest' | 'oldest' | 'az' | 'za'
+
+export interface ListLinksOptions {
   limit: number
   cursor?: string
   search?: string
-  sort?: 'newest' | 'oldest' | 'az' | 'za'
+  sort?: SortOrder
 }
 
-interface ListLinksResult {
-  links: (Link | null)[]
+export interface ListLinksResult {
+  links: Link[]
   list_complete: boolean
   cursor?: string
 }
 
 export async function listLinks(options: ListLinksOptions): Promise<ListLinksResult> {
-  if (options.search || options.sort)
-    return listFilteredLinks(options)
+  return options.search || options.sort
+      ? listFilteredLinks(options)
+      : listRawLinks(options)
+}
 
+async function listRawLinks(options: ListLinksOptions): Promise<ListLinksResult> {
   const limit = Math.min(options.limit, getKvListMaxBatch())
-  const list = await kv().list({ prefix: 'link_', limit, cursor: options.cursor })
 
-  const links = await Promise.all(
-    list.keys.map(async (key: { name: string }) => {
-      const { metadata, value } = await getLinkByStorageKey(key.name)
-      if (value) {
-        return {
-          ...(metadata ?? {}),
-          ...value,
-        }
-      }
-      return null
-    }),
-  )
+  const list = await kv.list({
+    prefix: 'link_',
+    limit,
+    cursor: options.cursor,
+  })
+
+  const links = list.keys.map(key => parseLink(key.value ?? null))
 
   return {
-    links,
+    links: links.filter((link): link is Link => link !== null),
     list_complete: list.list_complete,
-    cursor: 'cursor' in list ? list.cursor : undefined,
+    cursor: list.list_complete ? undefined : list.cursor,
   }
 }
 
 async function listFilteredLinks(options: ListLinksOptions): Promise<ListLinksResult> {
   const batchLimit = getKvListMaxBatch()
-  const all: Link[] = []
-  let cursor: string | undefined
+  const allLinks: Link[] = []
+
+  let kvCursor: string | undefined
   let listComplete = false
 
   while (!listComplete) {
-    const list = await kv().list({ prefix: 'link_', limit: batchLimit, cursor })
-    const links = await Promise.all(
-      list.keys.map(async (key: { name: string }) => {
-        const { metadata, value } = await getLinkByStorageKey(key.name)
-        return value ? { ...(metadata ?? {}), ...value } : null
-      }),
-    )
-    all.push(...links.filter((link): link is Link => link !== null))
+    const list = await kv.list({
+      prefix: 'link_',
+      limit: batchLimit,
+      cursor: kvCursor,
+    })
+
+    const links = list.keys.map(key => parseLink(key.value ?? null))
+
+    allLinks.push(...links.filter((link): link is Link => link !== null))
+
     listComplete = list.list_complete
-    cursor = list.cursor
-    if (!cursor && !listComplete)
-      break
+    kvCursor = listComplete ? undefined : list.cursor
   }
 
   const q = options.search?.trim().toLowerCase()
+
   const filtered = q
-    ? all.filter(link => (
-        link.slug.toLowerCase().includes(q)
-        || link.url.toLowerCase().includes(q)
-        || (link.comment?.toLowerCase().includes(q) ?? false)
-      ))
-    : all
+      ? allLinks.filter(link =>
+          link.slug.toLowerCase().includes(q)
+          || link.url.toLowerCase().includes(q)
+          || (link.comment?.toLowerCase().includes(q) ?? false),
+      )
+      : allLinks
+
+  const sort = options.sort ?? 'newest'
 
   filtered.sort((a, b) => {
-    switch (options.sort) {
+    switch (sort) {
       case 'oldest':
-        return (a.createdAt ?? 0) - (b.createdAt ?? 0)
+        return a.createdAt - b.createdAt
       case 'az':
         return a.slug.localeCompare(b.slug)
       case 'za':
         return b.slug.localeCompare(a.slug)
-      case 'newest':
       default:
-        return (b.createdAt ?? 0) - (a.createdAt ?? 0)
+        return b.createdAt - a.createdAt
     }
   })
 
   const limit = Math.min(options.limit, batchLimit)
-  const offset = Number.parseInt(options.cursor ?? '0', 10)
-  const start = Number.isFinite(offset) && offset > 0 ? offset : 0
-  const slice = filtered.slice(start, start + limit)
-  const nextOffset = start + slice.length
+  let startIndex = 0
+
+  if (options.cursor) {
+    const colonIdx = options.cursor.indexOf(':')
+
+    if (colonIdx >= 0) {
+      const cursorTs = Number(options.cursor.slice(0, colonIdx))
+      const cursorSlug = options.cursor.slice(colonIdx + 1)
+
+      const idx = filtered.findIndex(
+          link => link.createdAt === cursorTs && link.slug === cursorSlug,
+      )
+
+      startIndex = idx >= 0 ? idx + 1 : 0
+    }
+  }
+
+  const slice = filtered.slice(startIndex, startIndex + limit)
+  const isComplete = startIndex + slice.length >= filtered.length
+  const last = slice.at(-1)
 
   return {
     links: slice,
-    list_complete: nextOffset >= filtered.length,
-    cursor: nextOffset >= filtered.length ? undefined : String(nextOffset),
+    list_complete: isComplete,
+    cursor: isComplete || !last ? undefined : `${last.createdAt}:${last.slug}`,
   }
-}
-
-export function buildTargetUrl(
-  url: string,
-  query: Record<string, string | string[] | undefined>,
-  withQ: boolean,
-): string {
-  if (!withQ)
-    return url
-  return withQuery(url, query as QueryObject)
 }

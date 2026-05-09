@@ -30,7 +30,7 @@ type LinkData = {
 }
 
 type ListPayload = {
-  links: Array<LinkData | null>
+  links: LinkData[]
   list_complete: boolean
   cursor?: string
 }
@@ -64,7 +64,7 @@ export default function LinksManagePage() {
       if (next) params.set('cursor', next)
       if (search.trim()) params.set('search', search.trim())
       const data = await apiJson<ListPayload>(`/api/links?${params}`)
-      const nextRows = data.links.filter((r): r is LinkData => r !== null)
+      const nextRows = data.links
       setRows(prev => (next ? [...prev, ...nextRows] : nextRows))
       setComplete(data.list_complete)
       setCursor(data.cursor)

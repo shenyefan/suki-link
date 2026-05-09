@@ -3,12 +3,16 @@ import { getKvBatchLimit } from '@/server/env'
 import { fail, ok, parseJsonBody } from '@/server/response'
 import {
   assertSlugAllowed,
+  createImportDataSchema,
+  genId,
   getLink,
-  ImportDataSchema,
   type ImportResult,
+  type Link,
   normalizeSlug,
   putLink,
 } from '@/server/link'
+
+const ImportDataSchema = createImportDataSchema()
 
 export async function POST(request: Request): Promise<Response> {
   const deny = await requireAuth(request)
@@ -62,16 +66,18 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       const now = Math.floor(Date.now() / 1000)
-      const link = {
+      const link: Link = {
+        id: linkData.id ?? genId(),
         url: linkData.url,
         slug,
         comment: linkData.comment,
         createdAt: linkData.createdAt || now,
         updatedAt: linkData.updatedAt || now,
         expiration: linkData.expiration,
-        title: linkData.title,
-        description: linkData.description,
-        image: linkData.image,
+        redirectWithQuery: linkData.redirectWithQuery,
+        cloaking: linkData.cloaking,
+        password: linkData.password,
+        unsafe: linkData.unsafe,
       }
 
       await putLink(link)

@@ -32,26 +32,32 @@ async function statusPage(request: NextRequest, status: 404 | 410, kind: 'not-fo
   return new Response(html, { status, headers: responseHeaders })
 }
 
-function buildCloakedHtml(targetUrl: string, title?: string, description?: string, image?: string): string {
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function buildCloakedHtml(targetUrl: string): string {
+  const escapedUrl = escapeHtml(targetUrl)
+
   return `<!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  ${title ? `<title>${title}</title>` : ''}
-  ${description ? `<meta name="description" content="${description}">` : ''}
-  ${image ? `<meta property="og:image" content="${image}">` : ''}
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; }
-    iframe { width: 100%; height: 100%; border: none; }
+    iframe { width: 100%; height: 100%; border: 0; }
   </style>
 </head>
 <body>
-  <iframe src="${targetUrl}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
-  <noscript>
-    <p>此页面需要 JavaScript。<a href="${targetUrl}">点击这里继续</a></p>
-  </noscript>
+  <iframe src="${escapedUrl}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+  <noscript><a href="${escapedUrl}">继续访问</a></noscript>
 </body>
 </html>`
 }
@@ -118,14 +124,19 @@ function redirectOrFail(request: NextRequest, params: Promise<{ slug: string }>)
     const q = getSearchRecord(request)
     const targetUrl = buildTargetUrl(link.url, q, Boolean(link.redirectWithQuery))
 
-    // If cloaking is enabled, return an HTML page with iframe
+    if (link.unsafe && request.nextUrl.searchParams.get('confirm') !== 'true') {
+      const warningUrl = new URL('/link-status/confirm', request.url)
+      warningUrl.searchParams.set('target', targetUrl)
+      warningUrl.searchParams.set('slug', slug)
+      return NextResponse.redirect(warningUrl.toString(), 302)
+    }
+
     if (link.cloaking) {
-      const html = buildCloakedHtml(targetUrl, link.title, link.description, link.image)
-      return new Response(html, {
+      return new Response(buildCloakedHtml(targetUrl), {
         status: 200,
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Cache-Control': 'no-store',
         },
       })
     }

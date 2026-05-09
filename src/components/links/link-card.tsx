@@ -140,9 +140,8 @@ export function LinkCard({ link, onDelete, onEdit }: LinkCardProps) {
                   <TooltipContent>{shortUrl}</TooltipContent>
                 </Tooltip>
                 {link.unsafe && (
-                  <Badge variant="destructive" className="h-5 px-1.5">
-                    <span className="sr-only">不安全</span>
-                    !
+                  <Badge variant="secondary" className="h-5 px-1.5">
+                    确认
                   </Badge>
                 )}
               </div>

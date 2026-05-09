@@ -1,15 +1,18 @@
 import type { LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 interface LinkStatusViewProps {
   title: string
   description: string
   icon: LucideIcon
+  children?: ReactNode
 }
 
 export function LinkStatusView({
   title,
   description,
   icon: Icon,
+  children,
 }: LinkStatusViewProps) {
   return (
     <main className="flex min-h-svh flex-col items-center justify-center bg-background px-4 text-center">
@@ -21,6 +24,7 @@ export function LinkStatusView({
         <p className="mx-auto max-w-112.5 text-lg text-muted-foreground">
           {description}
         </p>
+        {children}
       </section>
     </main>
   )
