@@ -68,7 +68,7 @@ SUKI_LINK_CACHE_TTL=
 SUKI_CASE_SENSITIVE_SLUG=
 SUKI_SLUG_DEFAULT_LENGTH=6
 SUKI_SLUG_REGEX=
-SUKI_RESERVE_SLUGS=api,dashboard,password,status,_next,robots.txt,favicon.ico
+SUKI_RESERVE_SLUGS=api,dashboard,password,status,index,_next,robots.txt,favicon.ico,logo.svg,logo-dark.svg
 ```
 
 监控配置：

@@ -3,9 +3,12 @@ const DEFAULT_RESERVE_SLUGS = [
   'dashboard',
   'password',
   'status',
+  'index',
   '_next',
   'robots.txt',
   'favicon.ico',
+  'logo.svg',
+  'logo-dark.svg',
 ]
 
 function pickEnv(key: string): string {

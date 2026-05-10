@@ -10,6 +10,8 @@ import {
 } from '@/server/link'
 import { getSearchRecord } from '@/server/response'
 
+export const dynamic = 'force-dynamic'
+
 async function statusPage(request: NextRequest, status: 404 | 410, kind: 'not-found' | 'expired'): Promise<Response> {
   const headers = {
     'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -94,7 +96,7 @@ function redirectOrFail(request: NextRequest, params: Promise<{ slug: string }>)
       /* ignore */
     }
     slug = normalizeSlug(slug)
-    if (['favicon.ico', 'robots.txt', 'manifest.json'].includes(slug))
+    if (['favicon.ico', 'robots.txt', 'logo.svg', 'logo-dark.svg'].includes(slug))
       return await statusPage(request, 404, 'not-found')
     const reserved = assertSlugAllowed(slug)
     if (reserved)
