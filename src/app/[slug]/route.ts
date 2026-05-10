@@ -13,7 +13,7 @@ import { getSearchRecord } from '@/server/response'
 export const dynamic = 'force-dynamic'
 
 function statusRedirect(request: NextRequest, kind: 'not-found' | 'expired'): NextResponse {
-  const response = NextResponse.redirect(new URL(`/status/${kind}`, request.url), 302)
+  const response = NextResponse.redirect(new URL(`/${kind}`, request.url), 302)
   response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
   return response
 }
@@ -111,7 +111,7 @@ function redirectOrFail(request: NextRequest, params: Promise<{ slug: string }>)
     const targetUrl = buildTargetUrl(link.url, q, Boolean(link.redirectWithQuery))
 
     if (link.unsafe && request.nextUrl.searchParams.get('confirm') !== 'true') {
-      const warningUrl = new URL('/status/confirm', request.url)
+      const warningUrl = new URL('/confirm', request.url)
       warningUrl.searchParams.set('target', targetUrl)
       warningUrl.searchParams.set('slug', slug)
       return NextResponse.redirect(warningUrl.toString(), 302)
