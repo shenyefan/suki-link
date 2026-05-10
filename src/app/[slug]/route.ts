@@ -12,26 +12,10 @@ import { getSearchRecord } from '@/server/response'
 
 export const dynamic = 'force-dynamic'
 
-async function statusPage(request: NextRequest, status: 404 | 410, kind: 'not-found' | 'expired'): Promise<Response> {
-  const headers = {
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-  }
-  if (request.method === 'HEAD')
-    return new Response(null, { status, headers })
-
-  const pageUrl = new URL(`/status/${kind}`, request.url)
-  const page = await fetch(pageUrl, {
-    headers: { Accept: 'text/html' },
-    cache: 'no-store',
-  })
-  const html = await page.text()
-  const responseHeaders = new Headers(page.headers)
-  responseHeaders.set('Content-Type', 'text/html; charset=utf-8')
-  responseHeaders.set('Cache-Control', headers['Cache-Control'])
-  responseHeaders.delete('Content-Encoding')
-  responseHeaders.delete('Content-Length')
-  responseHeaders.delete('Transfer-Encoding')
-  return new Response(html, { status, headers: responseHeaders })
+function statusRedirect(request: NextRequest, kind: 'not-found' | 'expired'): NextResponse {
+  const response = NextResponse.redirect(new URL(`/status/${kind}`, request.url), 302)
+  response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+  return response
 }
 
 function escapeHtml(value: string): string {
@@ -97,17 +81,17 @@ function redirectOrFail(request: NextRequest, params: Promise<{ slug: string }>)
     }
     slug = normalizeSlug(slug)
     if (['favicon.ico', 'robots.txt', 'logo.svg', 'logo-dark.svg'].includes(slug))
-      return await statusPage(request, 404, 'not-found')
+      return statusRedirect(request, 'not-found')
     const reserved = assertSlugAllowed(slug)
     if (reserved)
-      return await statusPage(request, 404, 'not-found')
+      return statusRedirect(request, 'not-found')
 
     const link = await getLink(slug)
     if (!link)
-      return await statusPage(request, 404, 'not-found')
+      return statusRedirect(request, 'not-found')
 
     if (link.expiration && link.expiration <= Math.floor(Date.now() / 1000)) {
-      return await statusPage(request, 410, 'expired')
+      return statusRedirect(request, 'expired')
     }
 
     const verifiedPassword = request.cookies.get(passwordCookieName(slug))?.value
