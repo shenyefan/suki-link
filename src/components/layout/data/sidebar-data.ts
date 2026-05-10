@@ -5,7 +5,8 @@ import { type SidebarData } from '../types'
 export const sidebarData: SidebarData = {
   brand: {
     name: 'Suki-Link',
-    logo: Link2,
+    logo: '/logo.svg',
+    logoDark: '/logo-dark.svg',
     description: 'Link Management',
   },
   navGroups: [

@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "../styles/theme.css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Laptop, Link2, Moon, Sun } from 'lucide-react'
+import Image from 'next/image'
+import { Check, Laptop, Moon, Sun } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -13,7 +14,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 
@@ -22,7 +22,8 @@ type Theme = 'light' | 'dark' | 'system'
 type SidebarBrandProps = {
   brand: {
     name: string
-    logo: React.ElementType
+    logo: string
+    logoDark: string
     description: string
   }
 }
@@ -60,14 +61,10 @@ export function SidebarBrand({ brand }: SidebarBrandProps) {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <SidebarMenuButton
-          asChild
-          size="lg"
-          className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-        >
-        <div>
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            {brand.logo ? <brand.logo className="size-4" /> : <Link2 className="size-4" />}
+        <div className="flex h-12 items-center gap-2 px-2 text-start text-sm leading-tight">
+          <div className="flex aspect-square size-8 items-center justify-center">
+            <Image src={brand.logo} alt="" width={22} height={22} className="size-5 object-contain dark:hidden" priority />
+            <Image src={brand.logoDark} alt="" width={22} height={22} className="hidden size-5 object-contain dark:block" priority />
           </div>
           <div className="grid flex-1 text-start text-sm leading-tight">
             <span className="truncate font-semibold">{brand.name}</span>
@@ -108,7 +105,6 @@ export function SidebarBrand({ brand }: SidebarBrandProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
   )

@@ -1,6 +1,7 @@
 type SidebarBrand = {
   name: string
-  logo: React.ElementType
+  logo: string
+  logoDark: string
   description: string
 }
 
