@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "../styles/theme.css";
 
 @layer base {
@@ -11,7 +12,11 @@
     @apply overflow-x-hidden;
   }
   body {
-    @apply min-h-svh w-full bg-background text-foreground antialiased;
+    @apply min-h-svh w-full bg-background text-foreground antialiased has-[div[data-variant='inset']]:bg-sidebar;
+  }
+
+  body[data-scroll-locked] {
+    overflow: unset !important;
   }
 
   /* Cursor pointer for buttons */

@@ -185,6 +185,7 @@ export async function describeTrafficByMetric(
     domain?: string
     functionName?: string
     functionNameFilterKey?: string
+    urlPath?: string
   },
 ) {
   const client = createTeoClient(secretId, secretKey)
@@ -194,6 +195,7 @@ export async function describeTrafficByMetric(
     ...(input.functionName
       ? [{ Key: input.functionNameFilterKey || 'functionName', Operator: 'equals', Value: [input.functionName] }]
       : []),
+    ...(input.urlPath ? [{ Key: 'url', Operator: 'equals', Value: [input.urlPath] }] : []),
   ]
   const queryFilters = filters.length ? filters : undefined
 

@@ -1,3 +1,13 @@
+const DEFAULT_RESERVE_SLUGS = [
+  'api',
+  'dashboard',
+  'password',
+  'status',
+  '_next',
+  'robots.txt',
+  'favicon.ico',
+]
+
 function pickEnv(key: string): string {
   try {
     const p = typeof process !== 'undefined' ? process.env[key] : undefined
@@ -75,8 +85,10 @@ export function getSlugRegex(): RegExp {
 }
 
 export function getReserveSlugs(): string[] {
-  const raw = pickEnv('SUKI_RESERVE_SLUGS') || 'api,assets,manage'
-  return raw.split(',').map(s => s.trim()).filter(Boolean)
+  const raw = pickEnv('SUKI_RESERVE_SLUGS')
+  const values = raw ? raw.split(',') : DEFAULT_RESERVE_SLUGS
+  const slugs = values.map(s => s.trim()).filter(Boolean)
+  return getCaseSensitive() ? slugs : slugs.map(slug => slug.toLowerCase())
 }
 
 export function getLinkCacheTtl(): number | undefined {

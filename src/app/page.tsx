@@ -7,5 +7,5 @@ export default async function HomePage() {
   if (home)
     redirect(home)
 
-  redirect('/manage')
+  redirect('/dashboard')
 }

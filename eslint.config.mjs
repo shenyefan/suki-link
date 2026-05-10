@@ -13,8 +13,6 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     ".edgeone/**",
-    "Sink-master/**",
-    "shadcn-admin-main/**",
   ]),
 ]);
 

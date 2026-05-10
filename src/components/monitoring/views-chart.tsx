@@ -12,13 +12,13 @@ export function ViewsChart({ data }: { data?: TimeMetric }) {
   const rows = data?.timeData.map((time, index) => ({ time, visits: data.valueData[index] ?? 0 })) ?? []
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>趋势</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0">
         {rows.length ? (
-          <ChartContainer config={chartConfig} className="h-[260px] w-full aspect-auto">
+          <ChartContainer config={chartConfig} className="h-[260px] min-h-[260px] w-full min-w-0 aspect-auto">
             <AreaChart data={rows} accessibilityLayer margin={{ left: 0, right: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="time" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />

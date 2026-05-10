@@ -5,9 +5,8 @@ import { useSearchParams } from 'next/navigation'
 import { Lock } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/toast'
 
@@ -26,7 +25,7 @@ function PasswordForm() {
     setLoading(true)
 
     try {
-      const res = await fetch(`/api/links/${encodeURIComponent(slug)}/verify-password`, {
+      const res = await fetch(`/api/links/${encodeURIComponent(slug)}/password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password, query }),
@@ -50,29 +49,31 @@ function PasswordForm() {
   if (!slug) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-sm">
-          <CardContent className="pt-6 text-center">
-            <p className="text-muted-foreground">无效的链接</p>
-          </CardContent>
-        </Card>
+        <div className="flex w-full max-w-sm flex-col items-center gap-2 text-center">
+          <div className="flex size-8 items-center justify-center rounded-md">
+            <Lock className="size-6" />
+          </div>
+          <h1 className="text-xl font-bold">无效的链接</h1>
+          <FieldDescription>请检查链接地址是否完整。</FieldDescription>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-            <Lock className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <CardTitle>需要密码</CardTitle>
-          <CardDescription>此链接需要输入密码才能访问</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
+    <div className="grid min-h-svh place-items-center bg-background px-6 py-10">
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <form onSubmit={handleSubmit}>
+          <FieldGroup>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="flex size-8 items-center justify-center rounded-md">
+                <Lock className="size-6" />
+              </div>
+              <h1 className="text-xl font-bold">需要密码</h1>
+              <FieldDescription>此链接需要输入密码才能访问。</FieldDescription>
+            </div>
+            <Field>
+              <FieldLabel htmlFor="password">密码</FieldLabel>
               <Input
                 id="password"
                 type="password"
@@ -82,13 +83,15 @@ function PasswordForm() {
                 required
                 autoFocus
               />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading || !password}>
-              {loading ? '验证中...' : '访问'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            </Field>
+            <Field>
+              <Button type="submit" disabled={loading || !password}>
+                {loading ? '验证中' : '访问'}
+              </Button>
+            </Field>
+          </FieldGroup>
+        </form>
+      </div>
     </div>
   )
 }

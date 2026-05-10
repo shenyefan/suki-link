@@ -1,24 +1,31 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-import { ChevronDown, ChevronDownIcon, Eye, EyeOff, Settings2, Shuffle } from 'lucide-react'
+import { ChevronDownIcon, Eye, EyeOff, Shuffle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { ResponsiveModal } from '@/components/ui/responsive-modal'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
-import { apiJson } from '@/manage/api'
+import { apiJson } from '@/lib/dashboard-api'
 
 interface LinkEditorProps {
   open: boolean
@@ -28,13 +35,23 @@ interface LinkEditorProps {
   trigger?: ReactNode
 }
 
+function resetDate(date?: Date, time?: string) {
+  if (!date) return undefined
+  const next = new Date(date)
+  if (time) {
+    const [hour, minute, second] = time.split(':')
+    next.setHours(Number(hour) || 0, Number(minute) || 0, Number(second) || 0, 0)
+  } else {
+    next.setHours(23, 59, 59, 0)
+  }
+  return Math.floor(next.getTime() / 1000)
+}
+
 export function LinkEditor({ open, onOpenChange, slug, onSuccess, trigger }: LinkEditorProps) {
-  const isEdit = !!slug
+  const isEdit = Boolean(slug)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [datePickerOpen, setDatePickerOpen] = useState(false)
-  const toast = useToast()
-
+  const [dateOpen, setDateOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [customSlug, setCustomSlug] = useState('')
   const [comment, setComment] = useState('')
@@ -44,50 +61,17 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess, trigger }: Lin
   const [cloaking, setCloaking] = useState(false)
   const [password, setPassword] = useState('')
   const [unsafe, setUnsafe] = useState(false)
-
-  // Check if any advanced option is set
-  const hasAdvancedOptions = expirationDate || redirectWithQuery || cloaking || password || unsafe
-  const [showAdvanced, setShowAdvanced] = useState(false)
+  const toast = useToast()
 
   useEffect(() => {
     if (!open) return
+
     window.queueMicrotask(() => {
       setShowPassword(false)
-      setDatePickerOpen(false)
+      setDateOpen(false)
     })
-    
-    if (isEdit && slug) {
-      window.queueMicrotask(() => setLoading(true))
-      apiJson<Record<string, unknown>>(`/api/links/${encodeURIComponent(slug)}`)
-        .then((data) => {
-          setUrl(String(data.url ?? ''))
-          setCustomSlug(String(data.slug ?? ''))
-          setComment(typeof data.comment === 'string' ? data.comment : '')
-          setRedirectWithQuery(data.redirectWithQuery === true)
-          setCloaking(data.cloaking === true)
-          setPassword(typeof data.password === 'string' ? data.password : '')
-          setUnsafe(data.unsafe === true)
-          
-          if (typeof data.expiration === 'number' && data.expiration > 0) {
-            const d = new Date(data.expiration * 1000)
-            setExpirationDate(d)
-            const pad = (n: number) => String(n).padStart(2, '0')
-            setExpirationTime(`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`)
-          } else {
-            setExpirationDate(undefined)
-            setExpirationTime('')
-          }
-          
-          // Auto-show advanced if any option is set
-          const hasAdvanced = data.redirectWithQuery || data.cloaking || data.password || data.expiration || data.unsafe
-          setShowAdvanced(!!hasAdvanced)
-        })
-        .catch((err) => {
-          const message = err instanceof Error ? err.message : '加载失败'
-          toast.error('加载短链失败', message)
-        })
-        .finally(() => setLoading(false))
-    } else {
+
+    if (!isEdit || !slug) {
       window.queueMicrotask(() => {
         setUrl('')
         setCustomSlug('')
@@ -98,10 +82,36 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess, trigger }: Lin
         setCloaking(false)
         setPassword('')
         setUnsafe(false)
-        setShowAdvanced(false)
       })
+      return
     }
-  }, [open, isEdit, slug, toast])
+
+    window.queueMicrotask(() => setLoading(true))
+    apiJson<Record<string, unknown>>(`/api/links/${encodeURIComponent(slug)}`)
+      .then((data) => {
+        setUrl(String(data.url ?? ''))
+        setCustomSlug(String(data.slug ?? ''))
+        setComment(typeof data.comment === 'string' ? data.comment : '')
+        setRedirectWithQuery(data.redirectWithQuery === true)
+        setCloaking(data.cloaking === true)
+        setPassword(typeof data.password === 'string' ? data.password : '')
+        setUnsafe(data.unsafe === true)
+
+        if (typeof data.expiration === 'number' && data.expiration > 0) {
+          const date = new Date(data.expiration * 1000)
+          const pad = (value: number) => String(value).padStart(2, '0')
+          setExpirationDate(date)
+          setExpirationTime(`${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`)
+        } else {
+          setExpirationDate(undefined)
+          setExpirationTime('')
+        }
+      })
+      .catch((err) => {
+        toast.error('加载短链失败', err instanceof Error ? err.message : '加载失败')
+      })
+      .finally(() => setLoading(false))
+  }, [isEdit, open, slug, toast])
 
   const generateSlug = () => {
     const chars = '23456789abcdefghjkmnpqrstuvwxyz'
@@ -112,59 +122,34 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess, trigger }: Lin
     setCustomSlug(result)
   }
 
-  const getExpirationTimestamp = (): number | undefined => {
-    if (!expirationDate) return undefined
-    const d = new Date(expirationDate)
-    if (expirationTime) {
-      const parts = expirationTime.split(':')
-      d.setHours(
-        parseInt(parts[0]) || 0,
-        parseInt(parts[1]) || 0,
-        parseInt(parts[2]) || 0,
-        0
-      )
-    } else {
-      d.setHours(23, 59, 59, 0)
-    }
-    return Math.floor(d.getTime() / 1000)
-  }
-
-  const handleSubmit = async () => {
-    if (!url) return
+  const submit = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault()
+    if (!url.trim()) return
 
     setLoading(true)
-
     try {
       const body: Record<string, unknown> = { url: url.trim() }
-      
-      if (isEdit) {
-        body.slug = customSlug.trim() || slug
-      } else if (customSlug.trim()) {
-        body.slug = customSlug.trim()
-      }
-      
+      if (isEdit) body.slug = customSlug.trim() || slug
+      else if (customSlug.trim()) body.slug = customSlug.trim()
       if (comment.trim()) body.comment = comment.trim()
-      const expTimestamp = getExpirationTimestamp()
-      if (expTimestamp) body.expiration = expTimestamp
+      const expiration = resetDate(expirationDate, expirationTime)
+      if (expiration) body.expiration = expiration
       if (redirectWithQuery) body.redirectWithQuery = true
       if (cloaking) body.cloaking = true
       if (password) body.password = password
       if (unsafe) body.unsafe = true
 
-      const endpoint = isEdit ? `/api/links/${encodeURIComponent(slug)}` : '/api/links'
-      const method = isEdit ? 'PUT' : 'POST'
+      const endpoint = isEdit && slug ? `/api/links/${encodeURIComponent(slug)}` : '/api/links'
       await apiJson(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
+        method: isEdit ? 'PUT' : 'POST',
         body: JSON.stringify(body),
       })
-      
-      toast.success(isEdit ? '短链已更新' : '短链已创建', customSlug.trim() || slug || url)
+
+      toast.success(isEdit ? '短链已更新' : '短链已创建')
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      const message = err instanceof Error ? err.message : '操作失败'
-      toast.error(isEdit ? '更新失败' : '创建失败', message)
+      toast.error(isEdit ? '更新失败' : '创建失败', err instanceof Error ? err.message : '操作失败')
     } finally {
       setLoading(false)
     }
@@ -173,115 +158,88 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess, trigger }: Lin
   return (
     <>
       {trigger}
-      <ResponsiveModal
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? '编辑短链' : '创建短链'}
-      description={isEdit ? '修改短链配置' : '填写信息创建新的短链接'}
-      footer={
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button onClick={() => void handleSubmit()} disabled={loading || !url}>
-            {loading ? '保存中...' : isEdit ? '保存' : '创建'}
-          </Button>
-        </div>
-      }
+      <Sheet
+        open={open}
+        onOpenChange={(value) => {
+          onOpenChange(value)
+        }}
       >
-      <ScrollArea className="max-h-[70vh]">
-        <div className="space-y-4 pr-4">
-          {/* URL */}
-          <div className="space-y-2">
-            <Label htmlFor="url">
-              目标 URL <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="url"
-              type="url"
-              placeholder="https://example.com"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              required
-            />
-          </div>
+        <SheetContent className="flex flex-col sm:max-w-xl">
+          <SheetHeader className="text-start">
+            <SheetTitle>{isEdit ? '编辑短链' : '创建短链'}</SheetTitle>
+            <SheetDescription>
+              {isEdit ? '修改短链的目标地址和访问策略。' : '创建一个新的短链接并配置访问策略。'}
+            </SheetDescription>
+          </SheetHeader>
 
-          {/* Slug */}
-          <div className="space-y-2">
-            <Label htmlFor="slug">自定义短链</Label>
-            <div className="flex gap-2">
-              <Input
-                id="slug"
-                placeholder="留空自动生成"
-                value={customSlug}
-                onChange={(e) => setCustomSlug(e.target.value)}
-                className="flex-1"
-              />
-              {!isEdit && (
-                <Button type="button" variant="outline" size="icon" onClick={generateSlug} title="随机生成">
-                  <Shuffle className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            {isEdit && (
-              <p className="text-xs text-muted-foreground">修改短链标识会导致链接地址变化</p>
-            )}
-          </div>
-
-          {/* Comment */}
-          <div className="space-y-2">
-            <Label htmlFor="comment">备注</Label>
-            <Textarea
-              id="comment"
-              placeholder="可选备注信息"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              rows={2}
-            />
-          </div>
-
-          {/* Advanced Options */}
-          <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="space-y-4">
+          <form
+            id="link-editor-form"
+            onSubmit={(event) => void submit(event)}
+            className="flex-1 space-y-6 overflow-y-auto px-4"
+          >
             <div className="space-y-2">
-              <CollapsibleTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-9 w-full justify-between px-0 hover:bg-transparent"
-                >
-                  <span className="flex items-center gap-2 text-sm font-medium">
-                    <Settings2 className="h-4 w-4" />
-                    高级选项
-                    {hasAdvancedOptions && (
-                      <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">
-                        已设置
-                      </span>
-                    )}
-                  </span>
-                  <ChevronDown className={cn('h-4 w-4 transition-transform', showAdvanced && 'rotate-180')} />
-                </Button>
-              </CollapsibleTrigger>
-              <p className="text-xs text-muted-foreground">过期时间、查询参数、遮蔽、密码保护和确认跳转</p>
+              <Label htmlFor="link-url">目标 URL</Label>
+              <Input
+                id="link-url"
+                type="url"
+                placeholder="https://example.com"
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+              />
             </div>
 
-            <CollapsibleContent className="space-y-4">
-              <Separator />
+            <div className="space-y-2">
+              <Label htmlFor="link-slug">短链标识</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="link-slug"
+                  placeholder="留空自动生成"
+                  value={customSlug}
+                  onChange={(event) => setCustomSlug(event.target.value)}
+                />
+                {!isEdit && (
+                  <Button type="button" variant="outline" size="icon" onClick={generateSlug}>
+                    <Shuffle className="size-4" />
+                    <span className="sr-only">随机生成</span>
+                  </Button>
+                )}
+              </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label>过期时间</Label>
-                <div className="grid gap-2 sm:grid-cols-[1fr_112px]">
-                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+            <div className="space-y-2">
+              <Label htmlFor="link-comment">备注</Label>
+              <Textarea
+                id="link-comment"
+                placeholder="可选备注"
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-sm font-medium">访问策略</h3>
+                <p className="text-sm text-muted-foreground">配置过期时间、转发方式和安全提示。</p>
+              </div>
+
+              <FieldGroup className="flex-row gap-3">
+                <Field>
+                  <FieldLabel htmlFor="expiration-date" className="sr-only">日期</FieldLabel>
+                  <Popover open={dateOpen} onOpenChange={setDateOpen}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className={cn(
-                          'flex-1 justify-start font-normal',
-                          !expirationDate && 'text-muted-foreground',
-                        )}
+                        id="expiration-date"
+                        className={cn('w-36 justify-between font-normal', !expirationDate && 'text-muted-foreground')}
                       >
-                        <ChevronDownIcon className="mr-2 h-4 w-4" />
                         {expirationDate ? format(expirationDate, 'PPP', { locale: zhCN }) : '选择日期'}
+                        <ChevronDownIcon className="size-4" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto overflow-hidden p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={expirationDate}
@@ -290,94 +248,101 @@ export function LinkEditor({ open, onOpenChange, slug, onSuccess, trigger }: Lin
                         disabled={(date) => date < new Date()}
                         onSelect={(date) => {
                           setExpirationDate(date)
-                          setDatePickerOpen(false)
+                          setDateOpen(false)
                         }}
                       />
                     </PopoverContent>
                   </Popover>
+                </Field>
+                <Field className="w-32">
+                  <FieldLabel htmlFor="expiration-time" className="sr-only">时间</FieldLabel>
                   <Input
+                    id="expiration-time"
                     type="time"
-                    id="time-picker"
                     step="1"
                     value={expirationTime}
-                    onChange={(e) => setExpirationTime(e.target.value)}
+                    onChange={(event) => setExpirationTime(event.target.value)}
                     className="appearance-none bg-background [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
                   />
-                </div>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-muted-foreground">留空则永不过期</p>
-                  {expirationDate && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 text-xs text-muted-foreground"
-                      onClick={() => {
-                        setExpirationDate(undefined)
-                        setExpirationTime('')
-                      }}
-                    >
-                      清除
-                    </Button>
-                  )}
-                </div>
-              </div>
+                </Field>
+              </FieldGroup>
+              {expirationDate && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 text-muted-foreground"
+                  onClick={() => {
+                    setExpirationDate(undefined)
+                    setExpirationTime('')
+                  }}
+                >
+                  清除过期时间
+                </Button>
+              )}
 
-              <Separator />
-
-              <div className="flex items-center justify-between gap-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="redirectWithQuery">转发查询参数</Label>
-                  <p className="text-xs text-muted-foreground">将查询参数转发到目标 URL</p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="redirect-query">转发查询参数</Label>
+                    <p className="text-sm text-muted-foreground">把短链上的 query 透传给目标 URL。</p>
+                  </div>
+                  <Switch id="redirect-query" checked={redirectWithQuery} onCheckedChange={setRedirectWithQuery} />
                 </div>
-                <Switch id="redirectWithQuery" checked={redirectWithQuery} onCheckedChange={setRedirectWithQuery} />
-              </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="cloaking">链接遮蔽</Label>
-                  <p className="text-xs text-muted-foreground">在地址栏保留短链地址</p>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="cloaking">链接遮蔽</Label>
+                    <p className="text-sm text-muted-foreground">跳转后在地址栏保留短链地址。</p>
+                  </div>
+                  <Switch id="cloaking" checked={cloaking} onCheckedChange={setCloaking} />
                 </div>
-                <Switch id="cloaking" checked={cloaking} onCheckedChange={setCloaking} />
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">密码保护</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="留空不设密码"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                    <span className="sr-only">{showPassword ? '隐藏密码' : '显示密码'}</span>
-                  </Button>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="unsafe">确认跳转</Label>
+                    <p className="text-sm text-muted-foreground">访问前展示确认页面。</p>
+                  </div>
+                  <Switch id="unsafe" checked={unsafe} onCheckedChange={setUnsafe} />
                 </div>
               </div>
+            </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="unsafe">确认跳转</Label>
-                  <p className="text-xs text-muted-foreground">访问前展示确认页面</p>
-                </div>
-                <Switch id="unsafe" checked={unsafe} onCheckedChange={setUnsafe} />
+            <div className="space-y-2">
+              <Label htmlFor="link-password">密码保护</Label>
+              <div className="relative">
+                <Input
+                  id="link-password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="留空不设密码"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="pe-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute end-1 top-1/2 size-7 -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  {showPassword ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                  <span className="sr-only">{showPassword ? '隐藏密码' : '显示密码'}</span>
+                </Button>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
+            </div>
+          </form>
 
-        </div>
-      </ScrollArea>
-      </ResponsiveModal>
+          <SheetFooter className="gap-2">
+            <SheetClose asChild>
+              <Button variant="outline">关闭</Button>
+            </SheetClose>
+            <Button form="link-editor-form" type="submit" disabled={loading || !url.trim()}>
+              {loading ? '保存中' : '保存'}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </>
   )
 }

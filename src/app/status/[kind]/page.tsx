@@ -7,17 +7,17 @@ import { Button } from '@/components/ui/button'
 const statusCopy = {
   'not-found': {
     title: '短链不存在',
-    description: '这个短链不存在，可能已经被删除，或链接输入有误。',
+    description: '这个短链可能已经被删除或输入有误',
     icon: SearchX,
   },
   expired: {
     title: '短链已过期',
-    description: '这个短链已经超过有效期，无法继续访问。',
+    description: '这个短链已经超过有效期',
     icon: Clock3,
   },
   confirm: {
     title: '确认跳转',
-    description: '这个短链被标记为需要确认。请确认目标地址可信后再继续访问。',
+    description: '请确认目标地址可信后再继续访问',
     icon: ExternalLink,
   },
 } as const

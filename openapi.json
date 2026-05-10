@@ -2,70 +2,110 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Suki-Link API",
-    "description": "短链接服务 API",
+    "description": "Suki-Link 短链接后台 API。所有响应统一使用 { code, data, message } 包装。",
     "version": "1.0.0"
   },
   "servers": [
     {
-      "url": "http://localhost:3000",
-      "description": "本地开发"
+      "url": "http://localhost:8088",
+      "description": "EdgeOne Pages 本地开发"
+    },
+    {
+      "url": "https://{domain}",
+      "description": "线上环境",
+      "variables": {
+        "domain": {
+          "default": "suki.icu"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "name": "认证",
+      "description": "后台登录和令牌校验"
+    },
+    {
+      "name": "短链管理",
+      "description": "短链增删改查、导入导出和访问密码验证"
+    },
+    {
+      "name": "监控",
+      "description": "EdgeOne TEO 与 Pages 监控数据"
     }
   ],
   "paths": {
     "/api/auth/login": {
       "post": {
         "tags": ["认证"],
-        "summary": "登录获取Token",
+        "summary": "后台登录",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": ["password"],
-                "properties": {
-                  "password": {
-                    "type": "string",
-                    "example": "12345678"
-                  }
-                }
+                "$ref": "#/components/schemas/LoginRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "成功",
+            "description": "登录成功",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": { "type": "integer", "example": 200 },
-                    "data": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiEnvelope" },
+                    {
                       "type": "object",
                       "properties": {
-                        "token": { "type": "string" }
+                        "data": {
+                          "$ref": "#/components/schemas/LoginResult"
+                        }
                       }
-                    },
-                    "message": { "type": "string", "example": "登录成功" }
-                  }
+                    }
+                  ]
                 }
               }
             }
-          }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
     "/api/auth/verify": {
       "get": {
         "tags": ["认证"],
-        "summary": "验证Token",
+        "summary": "校验后台令牌",
         "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": {
-            "description": "成功"
-          }
+            "description": "校验成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "name": { "type": "string", "example": "Moenya" },
+                            "url": { "type": "string", "format": "uri", "example": "https://suki.icu" }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
@@ -73,22 +113,23 @@
       "get": {
         "tags": ["短链管理"],
         "summary": "短链列表",
+        "description": "不带 search 或 sort 时直接按 KV list 分页；带 search 或 sort 时会读取全部短链后再过滤排序，并使用 createdAt:slug 游标分页。",
         "security": [{ "BearerAuth": [] }],
         "parameters": [
           {
             "name": "limit",
             "in": "query",
-            "schema": { "type": "integer", "default": 20 }
+            "schema": { "type": "integer", "minimum": 1, "maximum": 1024, "default": 20 }
           },
           {
             "name": "cursor",
             "in": "query",
-            "schema": { "type": "string" }
+            "schema": { "type": "string", "maxLength": 1024 }
           },
           {
             "name": "search",
             "in": "query",
-            "schema": { "type": "string" }
+            "schema": { "type": "string", "maxLength": 2048 }
           },
           {
             "name": "sort",
@@ -101,7 +142,28 @@
           }
         ],
         "responses": {
-          "200": { "description": "成功" }
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ListLinksResult"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       },
       "post": {
@@ -113,20 +175,35 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": ["url"],
-                "properties": {
-                  "url": { "type": "string", "example": "https://example.com" },
-                  "slug": { "type": "string", "example": "my-link" },
-                  "comment": { "type": "string" },
-                  "expiration": { "type": "integer", "description": "过期时间戳(秒)" }
-                }
+                "$ref": "#/components/schemas/CreateLinkRequest"
               }
             }
           }
         },
         "responses": {
-          "201": { "description": "创建成功" }
+          "201": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LinkMutationResult"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "409": { "$ref": "#/components/responses/Conflict" }
         }
       }
     },
@@ -135,151 +212,303 @@
         "tags": ["短链管理"],
         "summary": "查询单个短链",
         "security": [{ "BearerAuth": [] }],
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" }
-          }
-        ],
+        "parameters": [{ "$ref": "#/components/parameters/Slug" }],
         "responses": {
-          "200": { "description": "成功" }
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AdminLink"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
         }
       },
       "put": {
         "tags": ["短链管理"],
-        "summary": "编辑短链",
+        "summary": "更新短链",
         "security": [{ "BearerAuth": [] }],
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" }
-          }
-        ],
+        "parameters": [{ "$ref": "#/components/parameters/Slug" }],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": ["url"],
-                "properties": {
-                  "slug": { "type": "string", "example": "my-link" },
-                  "url": { "type": "string" },
-                  "comment": { "type": "string" },
-                  "expiration": { "type": "integer" }
-                }
+                "$ref": "#/components/schemas/UpdateLinkRequest"
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "更新成功" }
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LinkMutationResult"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
         }
       },
       "delete": {
         "tags": ["短链管理"],
         "summary": "删除短链",
         "security": [{ "BearerAuth": [] }],
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" }
-          }
-        ],
+        "parameters": [{ "$ref": "#/components/parameters/Slug" }],
         "responses": {
-          "200": { "description": "删除成功" }
+          "200": {
+            "description": "删除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": ["slug"],
+                          "properties": {
+                            "slug": { "type": "string", "example": "example" }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/links/{slug}/password": {
+      "post": {
+        "tags": ["短链管理"],
+        "summary": "验证短链访问密码",
+        "description": "验证成功后设置 1 小时有效的 HttpOnly Cookie，并返回需要重新访问的短链路径。",
+        "parameters": [{ "$ref": "#/components/parameters/Slug" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyLinkPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "验证成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/VerifyLinkPasswordResult"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
     },
     "/api/links/export": {
       "get": {
         "tags": ["短链管理"],
-        "summary": "导出所有短链",
+        "summary": "导出全部短链",
+        "description": "服务端会按 SUKI_KV_BATCH_LIMIT 自动分页读取全部短链。",
         "security": [{ "BearerAuth": [] }],
-        "parameters": [
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": { "type": "string" }
-          }
-        ],
         "responses": {
-          "200": { "description": "成功" }
+          "200": {
+            "description": "导出成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ExportData"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
     "/api/links/import": {
       "post": {
         "tags": ["短链管理"],
-        "summary": "批量导入短链",
+        "summary": "导入短链",
+        "description": "重复 slug 会自动跳过；导入 schema 允许历史过期时间，便于兼容旧数据。",
         "security": [{ "BearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": ["version", "links"],
-                "properties": {
-                  "version": { "type": "string", "example": "1.0" },
-                  "links": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "required": ["url"],
-                      "properties": {
-                        "url": { "type": "string" },
-                        "slug": { "type": "string" }
-                      }
-                    }
-                  }
-                }
+                "$ref": "#/components/schemas/ImportData"
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "导入完成" }
+          "200": {
+            "description": "导入完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ImportResult"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       }
     },
-    "/api/links/{slug}/verify-password": {
-      "post": {
-        "tags": ["短链管理"],
-        "summary": "验证短链访问密码",
-        "security": [],
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "password": { "type": "string" },
-                  "query": { "type": "string" }
-                }
-              }
-            }
-          }
-        },
+    "/api/monitoring/zones": {
+      "get": {
+        "tags": ["监控"],
+        "summary": "查询 EdgeOne 站点列表",
+        "security": [{ "BearerAuth": [] }],
         "responses": {
-          "200": { "description": "验证成功" },
-          "401": { "description": "密码错误" },
-          "404": { "description": "未找到短链" }
+          "200": { "$ref": "#/components/responses/AnyData" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/monitoring/traffic": {
+      "get": {
+        "tags": ["监控"],
+        "summary": "查询流量指标",
+        "description": "调用 EdgeOne TEO 指标接口。传 slug 时会按短链路径过滤，例如 slug=abc 会过滤 url=/abc。",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "metric", "in": "query", "schema": { "type": "string", "default": "l7Flow_flux" } },
+          { "name": "startTime", "in": "query", "schema": { "type": "string", "example": "2026-05-10T00:00:00Z" } },
+          { "name": "endTime", "in": "query", "schema": { "type": "string", "example": "2026-05-10T23:59:59Z" } },
+          { "name": "interval", "in": "query", "schema": { "type": "string", "example": "hour" } },
+          { "name": "zoneId", "in": "query", "schema": { "type": "string" } },
+          { "name": "domain", "in": "query", "schema": { "type": "string" } },
+          { "name": "functionName", "in": "query", "schema": { "type": "string" } },
+          { "name": "slug", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AnyData" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/monitoring/pages/build-count": {
+      "get": {
+        "tags": ["监控"],
+        "summary": "查询 Pages 构建次数",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ZoneId" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AnyData" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/monitoring/pages/cloud-function-requests": {
+      "get": {
+        "tags": ["监控"],
+        "summary": "查询 Pages 函数请求量",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ZoneId" },
+          { "name": "startTime", "in": "query", "schema": { "type": "string" } },
+          { "name": "endTime", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AnyData" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/monitoring/pages/cloud-function-monthly-stats": {
+      "get": {
+        "tags": ["监控"],
+        "summary": "查询 Pages 函数月统计",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ZoneId" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AnyData" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
         }
       }
     }
@@ -289,7 +518,287 @@
       "BearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT"
+        "bearerFormat": "bcrypt-token"
+      }
+    },
+    "parameters": {
+      "Slug": {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "example": "example"
+      },
+      "ZoneId": {
+        "name": "zoneId",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string" }
+      }
+    },
+    "responses": {
+      "AnyData": {
+        "description": "查询成功",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                { "$ref": "#/components/schemas/ApiEnvelope" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {}
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "请求参数无效",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "未授权或密码错误",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "资源不存在",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "资源冲突",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "服务端错误",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ApiEnvelope": {
+        "type": "object",
+        "required": ["code", "data", "message"],
+        "properties": {
+          "code": { "type": "integer", "example": 200 },
+          "data": {},
+          "message": { "type": "string", "example": "请求成功" }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": ["code", "data", "message"],
+        "properties": {
+          "code": { "type": "integer", "example": 400 },
+          "data": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": true
+          },
+          "message": { "type": "string", "example": "参数无效" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["password"],
+        "properties": {
+          "password": { "type": "string", "minLength": 1 }
+        }
+      },
+      "LoginResult": {
+        "type": "object",
+        "required": ["token"],
+        "properties": {
+          "token": { "type": "string" }
+        }
+      },
+      "LinkBase": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": { "type": "string", "format": "uri", "maxLength": 2048, "example": "https://example.com" },
+          "slug": { "type": "string", "maxLength": 2048, "example": "example" },
+          "comment": { "type": "string", "maxLength": 2048, "example": "备注" },
+          "expiration": { "type": "integer", "format": "int64", "description": "Unix 秒级时间戳；创建和编辑时必须晚于当前时间" },
+          "redirectWithQuery": { "type": "boolean", "description": "是否把短链请求 query 透传给目标 URL" },
+          "cloaking": { "type": "boolean", "description": "是否跳转后保留短链地址" },
+          "password": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "unsafe": { "type": "boolean", "description": "是否访问前展示确认页面" }
+        }
+      },
+      "CreateLinkRequest": {
+        "allOf": [{ "$ref": "#/components/schemas/LinkBase" }]
+      },
+      "UpdateLinkRequest": {
+        "allOf": [{ "$ref": "#/components/schemas/LinkBase" }]
+      },
+      "ApiLink": {
+        "type": "object",
+        "required": ["id", "url", "slug", "createdAt", "updatedAt", "createTime", "updateTime"],
+        "properties": {
+          "id": { "type": "string", "minLength": 16, "maxLength": 16 },
+          "url": { "type": "string", "format": "uri" },
+          "slug": { "type": "string" },
+          "comment": { "type": "string" },
+          "createdAt": { "type": "integer", "format": "int64" },
+          "updatedAt": { "type": "integer", "format": "int64" },
+          "createTime": { "type": "string", "format": "date-time" },
+          "updateTime": { "type": "string", "format": "date-time" },
+          "expiration": { "type": "integer", "format": "int64" },
+          "redirectWithQuery": { "type": "boolean" },
+          "cloaking": { "type": "boolean" },
+          "unsafe": { "type": "boolean" }
+        }
+      },
+      "AdminLink": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ApiLink" },
+          {
+            "type": "object",
+            "properties": {
+              "password": { "type": "string" }
+            }
+          }
+        ]
+      },
+      "ListLinksResult": {
+        "type": "object",
+        "required": ["links", "list_complete"],
+        "properties": {
+          "links": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AdminLink" }
+          },
+          "list_complete": { "type": "boolean" },
+          "cursor": { "type": "string" }
+        }
+      },
+      "LinkMutationResult": {
+        "type": "object",
+        "required": ["link", "shortLink"],
+        "properties": {
+          "link": { "$ref": "#/components/schemas/AdminLink" },
+          "shortLink": { "type": "string", "format": "uri", "example": "https://suki.icu/example" }
+        }
+      },
+      "ExportData": {
+        "type": "object",
+        "required": ["version", "exportedAt", "count", "links", "list_complete"],
+        "properties": {
+          "version": { "type": "string", "example": "1.0" },
+          "exportedAt": { "type": "string", "format": "date-time" },
+          "count": { "type": "integer" },
+          "links": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ApiLink" }
+          },
+          "cursor": { "type": "string" },
+          "list_complete": { "type": "boolean", "example": true }
+        }
+      },
+      "ImportData": {
+        "type": "object",
+        "required": ["version", "links"],
+        "properties": {
+          "version": { "type": "string", "example": "1.0" },
+          "exportedAt": { "type": "string", "format": "date-time" },
+          "count": { "type": "integer" },
+          "links": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "allOf": [
+                { "$ref": "#/components/schemas/LinkBase" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "minLength": 16, "maxLength": 16 },
+                    "createdAt": { "type": "integer", "format": "int64" },
+                    "updatedAt": { "type": "integer", "format": "int64" }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "ImportResultItem": {
+        "type": "object",
+        "required": ["index", "slug", "url"],
+        "properties": {
+          "index": { "type": "integer" },
+          "slug": { "type": "string" },
+          "url": { "type": "string", "format": "uri" }
+        }
+      },
+      "ImportResult": {
+        "type": "object",
+        "required": ["success", "skipped", "failed", "successItems", "skippedItems", "failedItems"],
+        "properties": {
+          "success": { "type": "integer" },
+          "skipped": { "type": "integer" },
+          "failed": { "type": "integer" },
+          "successItems": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ImportResultItem" }
+          },
+          "skippedItems": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ImportResultItem" }
+          },
+          "failedItems": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                { "$ref": "#/components/schemas/ImportResultItem" },
+                {
+                  "type": "object",
+                  "required": ["reason"],
+                  "properties": {
+                    "reason": { "type": "string" }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "VerifyLinkPasswordRequest": {
+        "type": "object",
+        "required": ["password"],
+        "properties": {
+          "password": { "type": "string", "minLength": 1 },
+          "query": { "type": "string", "maxLength": 4096, "example": "?utm_source=test" }
+        }
+      },
+      "VerifyLinkPasswordResult": {
+        "type": "object",
+        "required": ["valid", "url"],
+        "properties": {
+          "valid": { "type": "boolean", "example": true },
+          "url": { "type": "string", "example": "/example?utm_source=test" }
+        }
       }
     }
   }

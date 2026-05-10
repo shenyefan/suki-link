@@ -1,4 +1,5 @@
 import { formatCount } from '@/lib/format'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { MetricItem } from '@/components/monitoring/types'
 
 export function MetricsList({ items }: { items: MetricItem[] }) {
@@ -24,6 +25,14 @@ export function MetricsList({ items }: { items: MetricItem[] }) {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+MetricsList.Skeleton = function MetricsListSkeleton() {
+  return (
+    <div className="space-y-4 p-4">
+      {Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-4 w-full rounded-full" />)}
     </div>
   )
 }

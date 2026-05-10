@@ -121,6 +121,11 @@ export async function DELETE(
 
   const { slug } = await context.params
   const normalizedSlug = normalizeSlug(slug)
-  await deleteLink(normalizedSlug)
+  try {
+    await deleteLink(normalizedSlug)
+  }
+  catch {
+    return fail(500, '删除短链失败，请稍后重试', 500)
+  }
   return ok({ slug: normalizedSlug }, '已删除')
 }

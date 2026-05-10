@@ -13,6 +13,7 @@ const QuerySchema = z.object({
   zoneId: z.string().trim().min(1).optional(),
   domain: z.string().trim().min(1).optional(),
   functionName: z.string().trim().min(1).optional(),
+  slug: z.string().trim().min(1).optional(),
 })
 
 function normalizeTopUrlKey(key: string) {
@@ -80,6 +81,7 @@ export async function GET(request: Request): Promise<Response> {
       domain: q.domain ?? getMonitoringDomain(request),
       functionName: q.functionName ?? getTeoFunctionName(),
       functionNameFilterKey: getTeoFunctionNameFilterKey(),
+      urlPath: q.slug ? `/${q.slug.replace(/^\/+/, '')}` : undefined,
     })
     const filteredData = await filterUrlTopDataToLinks(q.metric ?? 'l7Flow_flux', data)
     return ok(filteredData)

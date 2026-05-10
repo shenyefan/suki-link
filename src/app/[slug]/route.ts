@@ -17,7 +17,7 @@ async function statusPage(request: NextRequest, status: 404 | 410, kind: 'not-fo
   if (request.method === 'HEAD')
     return new Response(null, { status, headers })
 
-  const pageUrl = new URL(`/link-status/${kind}`, request.url)
+  const pageUrl = new URL(`/status/${kind}`, request.url)
   const page = await fetch(pageUrl, {
     headers: { Accept: 'text/html' },
     cache: 'no-store',
@@ -125,7 +125,7 @@ function redirectOrFail(request: NextRequest, params: Promise<{ slug: string }>)
     const targetUrl = buildTargetUrl(link.url, q, Boolean(link.redirectWithQuery))
 
     if (link.unsafe && request.nextUrl.searchParams.get('confirm') !== 'true') {
-      const warningUrl = new URL('/link-status/confirm', request.url)
+      const warningUrl = new URL('/status/confirm', request.url)
       warningUrl.searchParams.set('target', targetUrl)
       warningUrl.searchParams.set('slug', slug)
       return NextResponse.redirect(warningUrl.toString(), 302)

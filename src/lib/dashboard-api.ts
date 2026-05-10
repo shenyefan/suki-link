@@ -28,8 +28,19 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set('Authorization', `Bearer ${token}`)
   if (init?.body && !headers.has('Content-Type'))
     headers.set('Content-Type', 'application/json')
-  const res = await fetch(path, { ...init, headers })
-  const json = (await res.json()) as ApiEnvelope<T> & { message?: string; code?: number }
+  let res: Response
+  try {
+    res = await fetch(path, { ...init, headers })
+  } catch (err) {
+    throw new Error(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : '请求失败，请检查网络或服务是否正常')
+  }
+
+  let json: ApiEnvelope<T> & { message?: string; code?: number }
+  try {
+    json = (await res.json()) as ApiEnvelope<T> & { message?: string; code?: number }
+  } catch {
+    throw new Error(`接口返回异常（HTTP ${res.status}）`)
+  }
   if (!res.ok)
     throw new Error(json.message || `HTTP ${res.status}`)
   if (json.code !== 200)
